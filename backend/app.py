@@ -181,7 +181,17 @@ def scan_loop():
         scan_state["running"], scan_state["last_scan"] = False, datetime.now().strftime("%H:%M:%S")
         time.sleep(60)
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 시작 시 스캔 루프 실행
+    scan_thread = threading.Thread(target=scan_loop, daemon=True)
+    scan_thread.start()
+    yield
+    # 종료 시 cleanup (필요시)
+
+app = FastAPI(lifespan=lifespan)
 
 # CORS 설정 (모든 origin 허용 - 배포용)
 from fastapi.middleware.cors import CORSMiddleware
