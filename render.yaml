@@ -3,18 +3,13 @@ services:
     name: cresc-scanner
     runtime: python
     plan: free
-    buildCommand: |
-      cd frontend && npm install && npm run build
-      pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: cd backend && uvicorn app:app --host 0.0.0.0 --port $PORT
+    staticPublishPath: ./frontend
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: NODE_VERSION
-        value: 18.17.0
       - key: DISCORD_WEBHOOK_URL
-        sync: false  # 수동으로 설정 필요 (유료 사용자용 디스코드 알림)
+        sync: false
       - key: PREMIUM_API_KEYS
-        sync: false  # 쉼표로 구분된 유료 API 키들 (예: key1,key2,key3)
-      - key: VITE_API_URL
-        value: ""  # 빈값으로 설정 (같은 도메인 사용)
+        sync: false
