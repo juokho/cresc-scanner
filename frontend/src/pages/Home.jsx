@@ -70,9 +70,12 @@ function SignalCard({ signal, isPremium }) {
   const scoreColor = isLong ? GREEN : isShort ? RED : TEXT_MUT
   const scoreFmt = score > 0 ? `+${score}` : score
   
-  // 레버리지 ETF 티커 (신호 방향에 따라)
+  // 레버리지 ETF 티커만 표시 (신호 방향에 따라)
   const leverageTicker = isLong ? long_t : isShort ? short_t : null
   const leverageName = isLong ? "3X Long" : isShort ? "3X Short" : null
+  
+  // 티커를 레버리지 ETF로 교체
+  const displayTicker = leverageTicker || symbol
   
   return (
     <div style={{
@@ -85,7 +88,7 @@ function SignalCard({ signal, isPremium }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
         <div>
           <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700, color: TEXT_PRI }}>
-            {symbol}
+            {displayTicker}
           </div>
           <div style={{ fontSize: 10, color: TEXT_MUT, marginTop: 2 }}>{name}</div>
         </div>
@@ -102,7 +105,7 @@ function SignalCard({ signal, isPremium }) {
         {scoreFmt}
       </div>
       
-      {/* 레버리지 ETF 표시 */}
+      {/* 레버리지 배지 */}
       {leverageTicker && (
         <div style={{
           marginTop: 8,
@@ -110,16 +113,9 @@ function SignalCard({ signal, isPremium }) {
           background: isLong ? `${GREEN}15` : `${RED}15`,
           borderRadius: 6,
           border: `0.5px solid ${isLong ? GREEN : RED}`,
+          display: "inline-block"
         }}>
           <div style={{ fontSize: 9, color: TEXT_MUT }}>{leverageName}</div>
-          <div style={{ 
-            fontFamily: "'Orbitron', sans-serif", 
-            fontSize: 13, 
-            fontWeight: 700, 
-            color: isLong ? GREEN : RED 
-          }}>
-            {leverageTicker}
-          </div>
         </div>
       )}
       
