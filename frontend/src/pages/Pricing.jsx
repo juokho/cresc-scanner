@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { supabase } from "../supabase"
+import { setApiKey } from "../api"
 
 const BLUE     = "#3B5BDB"
 const BLUE_LT  = "#4C6EF5"
@@ -12,136 +12,110 @@ const TEXT_MUT = "#4a5568"
 const TEXT_HINT= "#2a3545"
 const GREEN    = "#22c55e"
 const GOLD     = "#f59e0b"
+const RED      = "#ef4444"
 
 const PLANS = [
   {
-    id:       "basic",
-    name:     "BASIC",
-    tag:      "체험판",
+    id:       "free",
+    name:     "FREE",
+    tag:      "무료",
     tagColor: GREEN,
-    desc:     "알고리즘 매매 첫 경험",
-    price:    9900,
-    priceLabel: "₩9,900",
-    priceSub:   "10회 소진까지 · 1회성",
+    desc:     "시그널 조회만 필요한 사용자",
+    price:    0,
+    priceLabel: "₩0",
+    priceSub:   "영구 무료",
     yearly:   false,
     highlight: false,
     features: [
-      { text: "자동매매 10회",          ok: true  },
-      { text: "ETH 단일 종목",          ok: true  },
-      { text: "레버리지 20x 고정",       ok: true  },
-      { text: "실시간 포지션 확인",      ok: true  },
-      { text: "다종목 지원",             ok: false },
-      { text: "디스코드 알림",           ok: false },
+      { text: "실시간 시그널 조회",          ok: true  },
+      { text: "미국 3X ETF 60+ 종목",        ok: true  },
+      { text: "LONG/SHORT/WAIT 시그널",      ok: true  },
+      { text: "CI 지수 + Z-Score 표시",       ok: true  },
+      { text: "포지션 추적 기능",            ok: false },
+      { text: "거래 내역 조회",              ok: false },
+      { text: "디스코드 알림",               ok: false },
     ],
-    cta: "체험 시작하기",
+    cta: "무료로 시작하기",
   },
   {
-    id:       "pro",
-    name:     "PRO",
+    id:       "premium",
+    name:     "PREMIUM",
     tag:      "추천",
     tagColor: BLUE_LT,
-    desc:     "제한 없는 자동매매",
-    price:      54000,
-    priceYearly: 43200,
-    priceLabel:  "₩54,000",
-    priceLabelYearly: "₩43,200",
+    desc:     "전체 기능이 필요한 트레이더",
+    price:      29000,
+    priceYearly: 23200,
+    priceLabel:  "₩29,000",
+    priceLabelYearly: "₩23,200",
     priceSub:    "/ 월",
-    priceSubYearly: "/ 월 (연간 ₩518,400)",
+    priceSubYearly: "/ 월 (연간 ₩278,400)",
     yearly:    true,
     highlight: true,
     features: [
-      { text: "자동매매 무제한",         ok: true },
-      { text: "BTC / ETH / SOL 3종목",  ok: true },
-      { text: "레버리지 최대 75x",       ok: true },
-      { text: "실시간 포지션 확인",      ok: true },
-      { text: "디스코드 알림",           ok: true },
-      { text: "우선 고객 지원",          ok: true },
+      { text: "FREE 모든 기능",              ok: true },
+      { text: "실시간 포지션 추적",          ok: true },
+      { text: "진입가/손절가/익절가 표시",   ok: true },
+      { text: "거래 내역 전체 조회",         ok: true },
+      { text: "디스코드 실시간 알림",        ok: true },
+      { text: "API Key로 전체 기능 접근",    ok: true },
     ],
-    cta: "PRO 시작하기",
+    cta: "PREMIUM 시작하기",
   },
   {
-    id:       "elite",
-    name:     "ELITE",
-    tag:      "개발 중",
+    id:       "enterprise",
+    name:     "ENTERPRISE",
+    tag:      "문의",
     tagColor: GOLD,
-    desc:     "곧 출시 예정",
+    desc:     "커스텀 개발 및 1:1 지원",
     price:    null,
-    priceLabel: "준비 중",
+    priceLabel: "별도 문의",
     priceSub:   "",
     yearly:   false,
     highlight: false,
     disabled:  true,
     features: [
-      { text: "PRO 모든 기능",           ok: true  },
-      { text: "레버리지 최대 125x",      ok: true  },
-      { text: "종목 추가 요청",          ok: true  },
-      { text: "1:1 전담 지원",           ok: true  },
-      { text: "도파민 모드 🔥",          ok: true  },
+      { text: "PREMIUM 모든 기능",           ok: true  },
+      { text: "커스텀 종목 추가",            ok: true  },
+      { text: "전략 파라미터 조정",          ok: true  },
+      { text: "전용 디스코드 채널",          ok: true  },
+      { text: "1:1 기술 지원",               ok: true  },
     ],
-    cta: "출시 알림 받기",
+    cta: "문의하기",
   },
 ]
 
 export default function Pricing() {
   const [yearly,  setYearly]  = useState(false)
   const [loading, setLoading] = useState("")
+  const [apiKeyInput, setApiKeyInput] = useState("")
   const navigate = useNavigate()
 
   const handleSelect = async (plan) => {
     if (plan.disabled) {
-      alert("곧 출시 예정이에요! 알림을 보내드릴게요 🙏")
+      alert("기업용 문의는 cha@example.com 으로 연락주세요 🙏")
       return
     }
 
-    setLoading(plan.id)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { navigate("/"); return }
+    if (plan.id === "free") {
+      // FREE: 그냥 대시보드로
+      navigate("/dashboard")
+      return
+    }
 
-      if (plan.id === "basic") {
-        // BASIC: 크레딧 10회 지급 (계좌이체 확인 후 수동 지급 — 현재는 테스트용 자동)
-        const { error } = await supabase.from("subscriptions").upsert({
-          user_id:       user.id,
-          plan:          "basic",
-          credits:       10,
-          billing_cycle: null,
-          is_active:     true,
-          expires_at:    null,
-        }, { onConflict: "user_id" })
-        if (error) throw error
-        alert("BASIC 플랜이 활성화됐어요!\n자동매매 10회 크레딧이 지급됐어요.")
-        navigate("/dashboard")
-      } else if (plan.id === "pro") {
-        // PRO: 계좌이체 안내
-        const cycle   = yearly ? "yearly" : "monthly"
-        const amount  = yearly ? 518400   : 54000
-        const expires = new Date()
-        if (yearly) expires.setFullYear(expires.getFullYear() + 1)
-        else        expires.setMonth(expires.getMonth() + 1)
-
-        const { error } = await supabase.from("subscriptions").upsert({
-          user_id:       user.id,
-          plan:          "pro",
-          credits:       -1,   // -1 = 무제한
-          billing_cycle: cycle,
-          is_active:     false,  // 입금 확인 후 활성화
-          expires_at:    expires.toISOString(),
-        }, { onConflict: "user_id" })
-        if (error) throw error
-
-        alert(
-          `PRO 플랜 신청이 완료됐어요!\n\n` +
-          `입금 금액: ₩${amount.toLocaleString()}\n` +
-          `입금 계좌: 카카오뱅크 000-0000-0000 차호준\n` +
-          `입금자명: 본인 이름\n\n` +
-          `입금 확인 후 24시간 내 활성화됩니다.`
-        )
+    if (plan.id === "premium") {
+      // PREMIUM: API Key 입력 모달 또는 안내
+      const key = prompt(
+        "PREMIUM 기능을 사용하려면 API Key가 필요합니다.\n\n" +
+        "구매 문의: cha@example.com\n" +
+        "계좌: 카카오뱅크 000-0000-0000 (차호준)\n\n" +
+        "입금 후 받은 API Key를 입력하세요:"
+      )
+      if (key && key.trim()) {
+        setApiKey(key.trim())
+        alert("API Key가 설정되었습니다!\nPREMIUM 기능을 사용할 수 있습니다.")
         navigate("/dashboard")
       }
-    } catch (e) {
-      alert("오류가 발생했어요: " + e.message)
     }
-    setLoading("")
   }
 
   return (
@@ -160,7 +134,7 @@ export default function Pricing() {
           </svg>
         </div>
         <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 12, fontWeight: 700, color: TEXT_PRI, letterSpacing: "1px" }}>
-          플랜 선택
+          CRESC SCANNER
         </span>
       </div>
 
@@ -169,11 +143,11 @@ export default function Pricing() {
         {/* 타이틀 */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 20, fontWeight: 500, color: TEXT_PRI, marginBottom: 8 }}>
-            나에게 맞는 플랜을<br/>선택해주세요
+            미국 주식 양방향<br/>ETF 스캐너
           </div>
           <div style={{ fontSize: 12, color: TEXT_MUT, lineHeight: 1.6 }}>
-            현재 시스템 승률 <span style={{ color: GREEN, fontWeight: 500 }}>68%</span> 기준<br/>
-            5회 이상부터 통계적 수익 구간 진입
+            TQQQ · SQQQ · SOXL · SOXS 등<br/>
+            <span style={{ color: GREEN, fontWeight: 500 }}>60+ 개 3X 레버리지 ETF</span> 실시간 모니터링
           </div>
         </div>
 
@@ -311,16 +285,17 @@ export default function Pricing() {
           })}
         </div>
 
-        {/* 계좌이체 안내 */}
+        {/* 결제 안내 */}
         <div style={{
           background: SURFACE, border: `0.5px solid ${BORDER}`,
           borderRadius: 12, padding: 14, marginTop: 20
         }}>
-          <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "2px", marginBottom: 10 }}>결제 안내</div>
+          <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "2px", marginBottom: 10 }}>PREMIUM 구매 안내</div>
           {[
-            ["결제 방식", "계좌이체"],
-            ["입금 계좌", "카카오뱅크 000-0000-0000"],
+            ["입금 계좌", "카카오뱅크 3333-12-3456789"],
             ["예금주",   "차호준"],
+            ["월간",     "₩29,000"],
+            ["연간",     "₩278,400 (20% 할인)"],
             ["활성화",   "입금 확인 후 24시간 내"],
           ].map(([label, value]) => (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
@@ -330,10 +305,10 @@ export default function Pricing() {
           ))}
         </div>
 
-        {/* 이용약관 */}
+        {/* 면책 조항 */}
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: TEXT_HINT, lineHeight: 1.6 }}>
-          구매 시 이용약관에 동의합니다<br/>
-          투자 손실에 대한 책임은 사용자에게 있습니다
+          스캐너는 투자 참고용이며 모든 투자 결정과<br/>
+          손실은 사용자 본인의 책임입니다
         </div>
 
       </div>

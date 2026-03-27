@@ -307,9 +307,17 @@ import os
 # 빌드된 React 파일 경로 (frontend/dist)
 dist_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
-# 개발 환경: frontend 폴더 직접 / 프로덕션: dist 폴더
+# 루트 경로 추가 - React Router SPA 지원
+@app.get("/")
+async def serve_root():
+    if os.path.exists(dist_path):
+        return FileResponse(os.path.join(dist_path, "index.html"))
+    else:
+        # 개발 환경: 간단한 안내 메시지
+        return {"message": "Development mode - run 'npm run dev' in frontend folder"}
+
+# 프로덕션: 빌드된 파일 서빙 (dist 폴더가 존재할 때)
 if os.path.exists(dist_path):
-    # 프로덕션: 빌드된 파일 서빙
     app.mount("/assets", StaticFiles(directory=os.path.join(dist_path, "assets")), name="assets")
     
     @app.get("/{full_path:path}")
@@ -324,9 +332,10 @@ if os.path.exists(dist_path):
         # 그 외는 index.html 반환 (React Router 처리)
         return FileResponse(os.path.join(dist_path, "index.html"))
 else:
-    # 개발 환경: 원본 파일 서빙
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+    # 개발 환경: 원본 파일 서빙 (public 폴더가 있으면)
+    public_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "public")
+    if os.path.exists(public_path):
+        app.mount("/", StaticFiles(directory=public_path, html=True), name="frontend")
 
 if __name__ == "__main__":
     threading.Thread(target=scan_loop, daemon=True).start()
