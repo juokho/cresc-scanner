@@ -39,3 +39,7 @@ coverage.xml
 # Project specific
 *.csv
 trade_log.csv
+cresc-scanner.zip
+*.zip
+backend/__pycache__/
+backend/**/*.pyc

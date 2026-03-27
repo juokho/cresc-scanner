@@ -1,17 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { checkServerStatus, updateBotSettings } from "../api"
-
-const BLUE     = "#3B5BDB"
-const BLUE_LT  = "#4C6EF5"
-const BG       = "#080c10"
-const SURFACE  = "#0d1218"
-const BORDER   = "#1c2530"
-const TEXT_PRI = "#e2e8f0"
-const TEXT_MUT = "#4a5568"
-const TEXT_HINT= "#2a3545"
-const GREEN    = "#22c55e"
-const RED      = "#ef4444"
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
 
 function SliderRow({ label, desc, value, min, max, color, unit, onChange }) {
   const pct = ((value - min) / (max - min)) * 100

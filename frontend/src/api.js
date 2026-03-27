@@ -1,54 +1,93 @@
 // ============================================================
-// 현재 FastAPI 백엔드 연동 API
+// FastAPI 백엔드 연동 API - 빠른 tier 방식
 // ============================================================
+
+import { supabase } from "./supabase"
 
 const API_URL = import.meta.env.VITE_API_URL || ""
 
-// API Key 관리
-let apiKey = localStorage.getItem('nexus_api_key') || ''
+// 현재 사용자의 tier 정보 (로그인 시 한 번 조회)
+let currentTier = localStorage.getItem('cresc_tier') || "free"
+let currentApiKey = ""
 
-export function setApiKey(key) {
-  apiKey = key
-  if (key) {
-    localStorage.setItem('nexus_api_key', key)
-  } else {
-    localStorage.removeItem('nexus_api_key')
+// ============================================================
+// 인증 및 티어 확인 (로그인 시 한 번 호출)
+// ============================================================
+export async function checkAuth() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) {
+      currentTier = "free"
+      currentApiKey = ""
+      return { is_premium: false, tier: "free", user: null }
+    }
+    
+    // api_keys 테이블에서 tier와 api_key 한 번에 조회
+    const { data: apiKeyData, error } = await supabase
+      .from('api_keys')
+      .select('api_key,tier')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .single()
+    
+    if (error || !apiKeyData) {
+      currentTier = "free"
+      currentApiKey = ""
+      return { is_premium: false, tier: "free", user: session.user }
+    }
+    
+    // 전역 변수에 저장
+    currentTier = apiKeyData.tier || "free"
+    currentApiKey = apiKeyData.api_key || ""
+    
+    return {
+      is_premium: currentTier === "premium",
+      tier: currentTier,
+      api_key: currentApiKey,
+      user: session.user
+    }
+  } catch (err) {
+    currentTier = "free"
+    currentApiKey = ""
+    return { is_premium: false, tier: "free", user: null }
   }
 }
 
-export function getApiKey() {
-  return apiKey
-}
-
+// ============================================================
+// API 요청 헤더 생성 (tier와 api_key 포함)
+// ============================================================
 function getHeaders() {
   const headers = {
     "Content-Type": "application/json",
-  }
-  if (apiKey) {
-    headers["X-API-Key"] = apiKey
+    "X-Tier": currentTier,           // tier 정보
+    "X-API-Key": currentApiKey || "" // API 키 (없으면 빈 문자열)
   }
   return headers
 }
 
-// ============================================================
-// 인증 및 티어 확인
-// ============================================================
-export async function checkAuth() {
-  try {
-    const res = await fetch(`${API_URL}/api/auth`, { headers: getHeaders() })
-    if (!res.ok) return { is_premium: false, tier: "free" }
-    return await res.json()
-  } catch {
-    return { is_premium: false, tier: "free" }
-  }
+export function getApiKey() {
+  return currentApiKey
+}
+
+export function getTier() {
+  return currentTier
+}
+
+export function setTier(tier) {
+  currentTier = tier
+  localStorage.setItem('cresc_tier', tier)
+}
+
+export function setApiKey(key) {
+  currentApiKey = key
 }
 
 // ============================================================
 // 시그널 및 포지션 데이터 조회
 // ============================================================
-export async function fetchSignals() {
+export async function fetchSignals(timeframe = "5m") {
   try {
-    const res = await fetch(`${API_URL}/api/data`, { headers: getHeaders() })
+    const res = await fetch(`${API_URL}/api/data?tf=${timeframe}`, { headers: getHeaders() })
     if (!res.ok) return { signals: [], scan: {}, tier: "free" }
     const data = await res.json()
     return {
@@ -56,10 +95,27 @@ export async function fetchSignals() {
       scan: data.scan || {},
       total: data.total || 0,
       active: data.active || 0,
-      tier: data.tier || "free"
+      tier: data.tier || "free",
+      timeframe: data.timeframe || timeframe
     }
   } catch {
     return { signals: [], scan: {}, tier: "free" }
+  }
+}
+
+// ============================================================
+// 온디맨드 스캔 트리거
+// ============================================================
+export async function triggerScan(timeframe = "5m") {
+  try {
+    const res = await fetch(`${API_URL}/api/scan?tf=${timeframe}`, { 
+      method: "POST",
+      headers: getHeaders() 
+    })
+    if (!res.ok) return { success: false }
+    return await res.json()
+  } catch {
+    return { success: false }
   }
 }
 
@@ -177,11 +233,9 @@ export async function updateBotSettings(settings) {
 
 export async function startBot(settings) {
   // 현재 백엔드에서 봇 제어 미지원
-  console.log("Bot start requested:", settings)
   return { success: false, message: "Bot control not available in current backend" }
 }
 
 export async function stopBot() {
-  console.log("Bot stop requested")
   return { success: false, message: "Bot control not available in current backend" }
 }

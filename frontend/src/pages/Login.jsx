@@ -1,22 +1,13 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../supabase"
+import { NavBar } from "./Home"
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
 
-const BLUE      = "#3B5BDB"
-const BLUE_LT   = "#4C6EF5"
-const BLUE_DK   = "#1e2d7a"
-const BG        = "#080c10"
-const SURFACE   = "#0d1218"
-const BORDER    = "#1c2530"
-const TEXT_PRI  = "#e2e8f0"
-const TEXT_MUT  = "#4a5568"
-const TEXT_HINT = "#2a3545"
-const RED       = "#ef4444"
-
-function LogoIcon({ size = 44, radius = 12 }) {
+function LogoIcon({ size = 44 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
-      <rect width="128" height="128" rx={radius * (128 / size)} fill={BLUE}/>
+      <rect width="128" height="128" rx="20" fill={BLUE}/>
       <circle cx="64" cy="64" r="44" stroke="white" strokeWidth="8" fill="none" opacity="0.25"/>
       <path d="M64 20 A44 44 0 1 0 64 108" stroke="white" strokeWidth="9.2" strokeLinecap="round" fill="none"/>
       <line x1="82" y1="82" x2="106" y2="110" stroke="white" strokeWidth="9.2" strokeLinecap="round"/>
@@ -145,9 +136,9 @@ function Terms() {
 
 export default function Login() {
   const [tab,      setTab]      = useState("login")
-  const [name,     setName]     = useState("")
   const [email,    setEmail]    = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState("")
   const navigate = useNavigate()
@@ -157,10 +148,22 @@ export default function Login() {
     if (!email || !password) { setError("이메일과 비밀번호를 입력해주세요"); return }
     setLoading(true)
     setError("")
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      setError("이메일 또는 비밀번호가 올바르지 않아요")
+      setError(error.message || "로그인에 실패했어요")
+      console.error("Login error:", error)
     } else {
+      // 세션이 완전히 설정될 때까지 대기 (최대 3초)
+      let attempts = 0
+      while (attempts < 30) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          console.log("Session confirmed:", session.user.id)
+          break
+        }
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
       navigate("/dashboard")
     }
     setLoading(false)
@@ -168,142 +171,162 @@ export default function Login() {
 
   // 회원가입
   const handleSignup = async () => {
-    if (!name || !email || !password) { setError("모든 항목을 입력해주세요"); return }
-    if (password.length < 8) { setError("비밀번호는 8자 이상이어야 해요"); return }
+    if (!email || !password) { setError("이메일과 비밀번호를 입력해주세요"); return }
+    if (password.length < 6) { setError("비밀번호는 6자 이상이어야 해요"); return }
+    if (password !== confirmPassword) { setError("비밀번호가 일치하지 않아요"); return }
     setLoading(true)
     setError("")
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } }
+      options: { data: { tier: "free" } }
     })
     if (error) {
-      setError("회원가입에 실패했어요. 다시 시도해주세요")
+      setError(error.message || "회원가입에 실패했어요")
+      console.error("Signup error:", error)
     } else {
-      navigate("/onboarding")
+      navigate("/dashboard")
     }
     setLoading(false)
   }
 
-  // Google 로그인
-  const handleGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` }
-    })
-  }
-
   return (
-    <div style={{
-      background: BG, minHeight: "100vh",
-      display: "flex", justifyContent: "center",
-      fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI
+    <div style={{ 
+      background: BG, 
+      minHeight: "100vh", 
+      fontFamily: "'DM Sans', sans-serif", 
+      color: TEXT_PRI,
+      paddingBottom: 100
     }}>
-      <div style={{ width: "100%", maxWidth: 430, padding: "32px 22px 48px" }}>
+      {/* 헤더 */}
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+        padding: "14px 18px",
+        borderBottom: `0.5px solid ${BORDER}`,
+        position: "sticky",
+        top: 0,
+        background: BG,
+        zIndex: 10
+      }}>
+        <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700 }}>
+          <span style={{ color: BLUE_LT }}>CRESC</span>.SCANNER
+        </span>
+      </div>
 
-        {/* 로고 */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <LogoIcon size={44} radius={12}/>
-          <div>
-            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 900, color: TEXT_PRI, letterSpacing: "2px", lineHeight: 1 }}>
-              <span style={{ color: BLUE_LT }}>Cresc</span>
-              <span style={{ color: BLUE_DK }}>.</span>
-              <span style={{ color: TEXT_PRI }}>Q</span>
-            </div>
-            <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "3px", marginTop: 3 }}>
-              QUANTITATIVE TRADING
-            </div>
+      {/* 컨텐츠 */}
+      <div style={{ padding: "40px 24px", maxWidth: 430, margin: "0 auto" }}>
+        {/* 로고 및 설명 */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <LogoIcon size={56} />
+          <div style={{ fontSize: 20, fontWeight: 700, marginTop: 16, marginBottom: 8 }}>
+            미국 ETF 스캐너
+          </div>
+          <div style={{ fontSize: 13, color: TEXT_MUT, lineHeight: 1.6 }}>
+            실시간 시그널로 스마트한 투자 경험
           </div>
         </div>
 
-        {/* 라이브 뱃지 */}
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 6,
-          background: SURFACE, border: `0.5px solid ${BORDER}`,
-          borderRadius: 20, padding: "6px 12px",
-          fontSize: 11, color: TEXT_MUT, marginBottom: 18
-        }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: BLUE_LT }} />
-          LIVE TRADING ACTIVE
-        </div>
-
-        {/* 스탯 */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <StatCard value="+50.38%" label="수익률" />
-          <StatCard value="73.94%"  label="승률" />
-          <StatCard value="2.326"   label="Profit Factor" />
-        </div>
-
-        {/* 전략 설명 */}
-        <div style={{
-          background: SURFACE, border: `0.5px solid ${BORDER}`,
-          borderRadius: 10, padding: "10px 14px",
-          marginBottom: 22, display: "flex", alignItems: "center", gap: 10
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: BLUE_LT, flexShrink: 0 }}/>
-          <div style={{ fontSize: 11, color: TEXT_MUT, lineHeight: 1.6 }}>
-            <span style={{ color: TEXT_PRI, fontWeight: 500 }}>ETHUSDT.P</span>
-            {" "}선물 기준 · 3/2 ~ 3/23 (21일)
-            <br/>
-            MDD <span style={{ color: TEXT_PRI }}>2.43%</span> · 449거래 · 바이낸스 5분봉
-          </div>
-        </div>
-
-        {/* 헤드라인 */}
-        <div style={{ fontSize: 21, fontWeight: 500, color: TEXT_PRI, lineHeight: 1.35, marginBottom: 6 }}>
-          알고리즘 트레이딩<br/>지금 시작하세요
-        </div>
-        <div style={{ fontSize: 13, color: TEXT_MUT, marginBottom: 24, lineHeight: 1.6 }}>
-          바이낸스 API 키만 입력하면<br/>자동으로 매매를 시작해요
+        {/* 스캐너 스탯 */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+          <StatCard value="60+" label="ETF 종목" />
+          <StatCard value="양방향" label="Long/Short" />
+          <StatCard value="디스코드" label="시그널 알림" />
         </div>
 
         {/* 탭 */}
         <div style={{
-          display: "flex", background: SURFACE,
+          display: "flex",
+          background: SURFACE,
           border: `0.5px solid ${BORDER}`,
-          borderRadius: 12, padding: 4, marginBottom: 18
+          borderRadius: 10,
+          padding: 4,
+          marginBottom: 24
         }}>
-          <Tab label="로그인"   active={tab === "login"}  onClick={() => { setTab("login");  setError("") }} />
+          <Tab label="로그인" active={tab === "login"} onClick={() => { setTab("login"); setError("") }} />
           <Tab label="회원가입" active={tab === "signup"} onClick={() => { setTab("signup"); setError("") }} />
         </div>
 
         {/* 에러 메시지 */}
         {error && (
           <div style={{
-            background: "#1a0808", border: `0.5px solid #3a1010`,
-            borderRadius: 8, padding: "10px 14px",
-            fontSize: 12, color: RED, marginBottom: 14
+            background: `${RED}22`,
+            border: `0.5px solid ${RED}`,
+            borderRadius: 8,
+            padding: "12px 14px",
+            fontSize: 12,
+            color: RED,
+            marginBottom: 16
           }}>
             {error}
           </div>
         )}
 
         {/* 폼 */}
-        {tab === "login" ? (
-          <div>
-            <Field label="이메일"   type="email"    placeholder="your@email.com" value={email}    onChange={setEmail}/>
-            <Field label="비밀번호" type="password" placeholder="••••••••"       value={password} onChange={setPassword}/>
-            <div style={{ textAlign: "right", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: TEXT_MUT, cursor: "pointer" }}>비밀번호 찾기</span>
-            </div>
-            <PrimaryBtn label="LOGIN" onClick={handleLogin} loading={loading}/>
-            <OrDivider/>
-            <GoogleBtn onClick={handleGoogle}/>
-            <Terms/>
-          </div>
-        ) : (
-          <div>
-            <Field label="이름"     type="text"     placeholder="홍길동"         value={name}     onChange={setName}/>
-            <Field label="이메일"   type="email"    placeholder="your@email.com" value={email}    onChange={setEmail}/>
-            <Field label="비밀번호" type="password" placeholder="8자 이상"       value={password} onChange={setPassword}/>
-            <PrimaryBtn label="CREATE ACCOUNT" onClick={handleSignup} loading={loading}/>
-            <OrDivider/>
-            <GoogleBtn onClick={handleGoogle}/>
-            <Terms/>
-          </div>
-        )}
+        <div>
+          <Field 
+            label="이메일" 
+            type="email" 
+            placeholder="your@email.com" 
+            value={email} 
+            onChange={setEmail}
+          />
+          <Field 
+            label={tab === "signup" ? "비밀번호 (8자 이상)" : "비밀번호"} 
+            type="password" 
+            placeholder="••••••••" 
+            value={password} 
+            onChange={setPassword}
+          />
+          {tab === "signup" && (
+            <Field 
+              label="비밀번호 확인" 
+              type="password" 
+              placeholder="••••••••" 
+              value={confirmPassword} 
+              onChange={setConfirmPassword}
+            />
+          )}
+          <PrimaryBtn 
+            label={tab === "login" ? "로그인" : "회원가입"} 
+            onClick={tab === "login" ? handleLogin : handleSignup} 
+            loading={loading}
+          />
+        </div>
 
+        {/* 구분선 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "24px 0" }}>
+          <div style={{ flex: 1, height: "0.5px", background: BORDER }} />
+          <span style={{ fontSize: 11, color: TEXT_HINT }}>또는</span>
+          <div style={{ flex: 1, height: "0.5px", background: BORDER }} />
+        </div>
+
+        {/* 홈으로 돌아가기 */}
+        <button
+          onClick={() => navigate("/dashboard")}
+          style={{
+            width: "100%",
+            padding: "12px",
+            background: "transparent",
+            border: `0.5px solid ${BORDER}`,
+            borderRadius: 8,
+            color: TEXT_MUT,
+            fontSize: 13,
+            cursor: "pointer"
+          }}
+        >
+          ← 홈으로 돌아가기
+        </button>
+
+        {/* 안내 문구 */}
+        <div style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: TEXT_HINT, lineHeight: 1.6 }}>
+          로그인하면 무료로 시그널 조회 가능<br/>
+          프리미엄 기능은 별도 구매 필요
+        </div>
       </div>
+
+      <NavBar navigate={navigate} active="account" />
     </div>
   )
 }
