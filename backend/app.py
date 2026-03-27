@@ -348,17 +348,20 @@ def get_log(auth: dict = Depends(require_premium)):
     except Exception:
         return JSONResponse([])
 
-dist_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
 
-@app.get("/")
-async def serve_root():
-    if os.path.exists(dist_path):
-        return FileResponse(os.path.join(dist_path, "index.html"))
-    return {"message": "Run 'npm run build' in frontend/"}
-
+# 정적 파일 마운트 (API보다 먼저)
 if os.path.exists(dist_path):
     app.mount("/assets", StaticFiles(directory=os.path.join(dist_path, "assets")), name="assets")
 
+@app.get("/")
+async def serve_root():
+    index_path = os.path.join(dist_path, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"message": f"Built files not found at {dist_path}. Run 'npm run build' in frontend/"}
+
+if os.path.exists(dist_path):
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         if full_path.startswith("api/"):
