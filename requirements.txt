@@ -5,3 +5,9 @@ numpy
 requests
 python-dotenv
 urllib3
+supabase
+pydantic
+python-binance
+aiohttp
+websockets
+cryptography
