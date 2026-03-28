@@ -927,6 +927,7 @@ export default function Home() {
 export function NavBar({ navigate, active }) {
   const items = [
     { id: "home", label: "홈", path: "/dashboard" },
+    { id: "trade", label: "자동매매", path: "/trade" },
     { id: "pricing", label: "플랜", path: "/pricing" },
     { id: "account", label: "내 계정", path: "/account" },
   ]

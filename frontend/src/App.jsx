@@ -6,6 +6,8 @@ import TradeHistory from "./pages/TradeHistory"
 import Pricing      from "./pages/Pricing"
 import Account      from "./pages/Account"
 import Login        from "./pages/Login"
+import Landing      from "./pages/Landing"
+import Trade        from "./pages/Trade"
 import ErrorBoundary from "./components/ErrorBoundary"
 
 export default function App() {
@@ -13,7 +15,10 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/"            element={<Navigate to="/dashboard" replace />} />
+          <Route path="/"            element={<Landing />} />
+          <Route path="/landing"      element={<Landing />} />
+          <Route path="/scan"         element={<Home />}/>
+          <Route path="/trade"        element={<Trade/>}/>
           <Route path="/dashboard"   element={<Home />}/>
           <Route path="/monitor"      element={<Monitor/>}/>
           <Route path="/history"      element={<TradeHistory/>}/>
