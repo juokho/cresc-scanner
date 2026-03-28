@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm exec -- vite",
-    "build": "npm exec -- vite build",
+    "dev": "node ./node_modules/.bin/vite",
+    "build": "node ./node_modules/.bin/vite build",
     "lint": "eslint .",
-    "preview": "npm exec -- vite preview"
+    "preview": "node ./node_modules/.bin/vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.3",
