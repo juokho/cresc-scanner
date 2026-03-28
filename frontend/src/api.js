@@ -238,3 +238,59 @@ export async function fetchTrades() {
     return []
   }
 }
+
+// ============================================================
+// Scanner API (for Home.jsx compatibility)
+// ============================================================
+export async function getApiKey() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return null
+    
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .single()
+    
+    if (error || !data) return null
+    return data.api_key
+  } catch {
+    return null
+  }
+}
+
+export async function getTier() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return "free"
+    
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('tier')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .single()
+    
+    if (error || !data) return "free"
+    return data.tier || "free"
+  } catch {
+    return "free"
+  }
+}
+
+export async function triggerScan() {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/scan`, { 
+      method: 'POST',
+      headers 
+    })
+    if (!res.ok) throw new Error(`Scan failed: ${res.status}`)
+    return await res.json()
+  } catch (error) {
+    console.error("Trigger scan error:", error)
+    throw error
+  }
+}
