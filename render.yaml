@@ -1,19 +1,15 @@
 services:
-  - type: web
+  - type: static
     name: quanter
-    runtime: node
     plan: free
     buildCommand: |
-      rm -rf node_modules
-      npm cache clean --force
       npm install
       npm run build
-    startCommand: npm run preview
     staticPublishPath: ./dist
     envVars:
       - key: NODE_VERSION
         value: 18.17.0
-  
+ 
   - type: worker
     name: quanter-api
     runtime: python
@@ -24,3 +20,4 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+ 
