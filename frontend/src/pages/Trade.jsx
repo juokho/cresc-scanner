@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { NavBar } from "./Home"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../theme'
 
 function LogoIcon({ size = 26 }) {
   return (
