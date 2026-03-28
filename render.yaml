@@ -17,7 +17,20 @@ services:
         destination: /index.html
  
   - type: worker
-    name: quanter-api
+    name: quanter-scanner
+    runtime: python
+    plan: free
+    buildCommand: |
+      cd backend && pip install -r requirements.txt
+    startCommand: cd backend && python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 8000
+  
+  - type: worker
+    name: quanter-trading
     runtime: python
     plan: free
     buildCommand: |
@@ -26,3 +39,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: PORT
+        value: 8001

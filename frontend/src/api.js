@@ -1,6 +1,9 @@
 import { supabase } from "./supabase"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+// Scanner API (port 8000)
+const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "http://localhost:8000"
+// Trading API (port 8001)  
+const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "http://localhost:8001"
 
 async function getHeaders() {
   try {
@@ -22,23 +25,22 @@ async function getHeaders() {
 }
 
 // ============================================================
-// 서버 상태
-// [버그수정] catch에서 return하지 않고 throw → 호출부에서 에러 감지 가능
+// 서버 상태 (Scanner)
 // ============================================================
 export async function checkServerStatus() {
   const headers = await getHeaders()
-  const res = await fetch(`${API_URL}/status`, { headers })
+  const res = await fetch(`${SCANNER_API_URL}/status`, { headers })
   if (!res.ok) throw new Error(`서버 오류: ${res.status}`)
   return await res.json()
 }
 
 // ============================================================
-// 지표 조회
+// 지표 조회 (Scanner)
 // ============================================================
 export async function fetchIndicators() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/indicators`, { headers })
+    const res = await fetch(`${SCANNER_API_URL}/indicators`, { headers })
     if (!res.ok) return {}
     const json = await res.json()
     return json.indicators || {}
@@ -48,12 +50,12 @@ export async function fetchIndicators() {
 }
 
 // ============================================================
-// 시그널 로그 조회
+// 시그널 로그 조회 (Scanner)
 // ============================================================
 export async function fetchSignals() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/signals`, { headers })
+    const res = await fetch(`${SCANNER_API_URL}/signals`, { headers })
     if (!res.ok) return []
     const json = await res.json()
     return json.signals || []
@@ -63,11 +65,11 @@ export async function fetchSignals() {
 }
 
 // ============================================================
-// 봇 설정 업데이트
+// 봇 설정 업데이트 (Trading)
 // ============================================================
 export async function updateBotSettings(settings) {
   const headers = await getHeaders()
-  const res = await fetch(`${API_URL}/bot/settings`, {
+  const res = await fetch(`${TRADING_API_URL}/bot/settings`, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -88,12 +90,11 @@ export async function updateBotSettings(settings) {
 }
 
 // ============================================================
-// 봇 시작
-// [버그수정] || 대신 ?? 사용 → 0 같은 falsy 값이 덮어씌워지지 않음
+// 봇 시작 (Trading)
 // ============================================================
 export async function startBot({ leverage, trade_pct, sl_atr_mult, tp_atr_mult, sl_mode }) {
   const headers = await getHeaders()
-  const res = await fetch(`${API_URL}/bot/start`, {
+  const res = await fetch(`${TRADING_API_URL}/bot/start`, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -113,11 +114,11 @@ export async function startBot({ leverage, trade_pct, sl_atr_mult, tp_atr_mult, 
 }
 
 // ============================================================
-// 봇 정지
+// 봇 정지 (Trading)
 // ============================================================
 export async function stopBot() {
   const headers = await getHeaders()
-  const res = await fetch(`${API_URL}/bot/stop`, {
+  const res = await fetch(`${TRADING_API_URL}/bot/stop`, {
     method: "POST",
     headers,
   })
@@ -129,12 +130,12 @@ export async function stopBot() {
 }
 
 // ============================================================
-// 잔고 조회
+// 잔고 조회 (Trading)
 // ============================================================
 export async function fetchBalance() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/balance`, { headers })
+    const res = await fetch(`${TRADING_API_URL}/balance`, { headers })
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -143,12 +144,12 @@ export async function fetchBalance() {
 }
 
 // ============================================================
-// 포지션 조회
+// 포지션 조회 (Trading)
 // ============================================================
 export async function fetchPositions() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/positions`, { headers })
+    const res = await fetch(`${TRADING_API_URL}/positions`, { headers })
     if (!res.ok) return []
     const json = await res.json()
     return json.positions || []
@@ -158,12 +159,12 @@ export async function fetchPositions() {
 }
 
 // ============================================================
-// 사용자 설정 조회
+// 사용자 설정 조회 (Trading)
 // ============================================================
 export async function fetchUserSettings() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/user/settings`, { headers })
+    const res = await fetch(`${TRADING_API_URL}/user/settings`, { headers })
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -172,11 +173,11 @@ export async function fetchUserSettings() {
 }
 
 // ============================================================
-// 사용자 설정 저장
+// 사용자 설정 저장 (Trading)
 // ============================================================
 export async function saveUserSettings(settings) {
   const headers = await getHeaders()
-  const res = await fetch(`${API_URL}/user/settings`, {
+  const res = await fetch(`${TRADING_API_URL}/user/settings`, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -199,7 +200,7 @@ export async function saveUserSettings(settings) {
 export async function fetchUserSubscription() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/subscription`, { headers })
+    const res = await fetch(`${TRADING_API_URL}/subscription`, { headers })
     if (!res.ok) return null
     return await res.json()
   } catch (error) {
@@ -211,7 +212,7 @@ export async function fetchUserSubscription() {
 export async function checkFeatureAccess(feature) {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/subscription/check`, {
+    const res = await fetch(`${TRADING_API_URL}/subscription/check`, {
       method: "POST",
       headers,
       body: JSON.stringify({ feature })
@@ -225,12 +226,12 @@ export async function checkFeatureAccess(feature) {
 }
 
 // ============================================================
-// 거래 내역 조회
+// 거래 내역 조회 (Trading)
 // ============================================================
 export async function fetchTrades() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/trades`, { headers })
+    const res = await fetch(`${TRADING_API_URL}/trades`, { headers })
     if (!res.ok) return []
     const json = await res.json()
     return json.trades || []
@@ -283,7 +284,7 @@ export async function getTier() {
 export async function triggerScan() {
   try {
     const headers = await getHeaders()
-    const res = await fetch(`${API_URL}/scan`, { 
+    const res = await fetch(`${SCANNER_API_URL}/scan`, { 
       method: 'POST',
       headers 
     })
