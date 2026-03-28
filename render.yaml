@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cresc-scanner
+    name: quanter
     runtime: python
     plan: free
     buildCommand: |

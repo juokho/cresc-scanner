@@ -7,7 +7,7 @@ import { supabase } from "./supabase"
 const API_URL = import.meta.env.VITE_API_URL || ""
 
 // 현재 사용자의 tier 정보 (로그인 시 한 번 조회)
-let currentTier = localStorage.getItem('cresc_tier') || "free"
+let currentTier = localStorage.getItem('quanter_tier') || "free"
 let currentApiKey = ""
 
 // ============================================================
@@ -75,7 +75,7 @@ export function getTier() {
 
 export function setTier(tier) {
   currentTier = tier
-  localStorage.setItem('cresc_tier', tier)
+  localStorage.setItem('quanter_tier', tier)
 }
 
 export function setApiKey(key) {

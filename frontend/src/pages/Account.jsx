@@ -45,7 +45,7 @@ export default function Account() {
         borderBottom: `0.5px solid ${BORDER}`
       }}>
         <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>CRESC</span>.ACCOUNT
+          <span style={{ color: BLUE_LT }}>QUANTER</span>.ACCOUNT
         </span>
       </div>
 
@@ -160,7 +160,7 @@ export default function Account() {
             문의 및 지원
           </div>
           {[
-            { label: "이메일", value: "support@cresc.io" },
+            { label: "이메일", value: "support@quanter.io" },
             { label: "카카오뱅크", value: "구매 문의 후 안내" },
           ].map(({ label, value }) => (
             <div key={label} style={{ 
@@ -177,7 +177,7 @@ export default function Account() {
 
         {/* 버전 */}
         <div style={{ textAlign: "center", fontSize: 10, color: TEXT_HINT, marginTop: 20 }}>
-          Cresc Scanner v1.0.0
+          QUANTER v1.0.0
         </div>
           </>
         )}

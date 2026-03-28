@@ -329,7 +329,7 @@ export default function Home() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <LogoIcon size={28} />
           <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-            <span style={{ color: BLUE_LT }}>CRESC</span>.SCANNER
+            <span style={{ color: BLUE_LT }}>QUANTER</span>
           </span>
           {authChecked && (
             <span style={{

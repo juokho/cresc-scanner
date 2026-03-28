@@ -71,7 +71,7 @@ function ApiKeyModal({ onConfirm, onClose }) {
         <div style={{ fontSize:15, fontWeight:600, color: TEXT_PRI, marginBottom: 8 }}>API Key 입력</div>
         <div style={{ fontSize:12, color: TEXT_MUT, lineHeight:1.6, marginBottom:20 }}>
           입금 확인 후 전달받은 API Key를 입력하세요.<br/>
-          구매 문의: <span style={{ color: BLUE_LT }}>support@cresc.io</span>
+          구매 문의: <span style={{ color: BLUE_LT }}>support@quanter.io</span>
         </div>
         <input
           type="text"
@@ -125,7 +125,7 @@ export default function Pricing() {
 
   const handleSelect = (plan) => {
     if (plan.disabled) {
-      window.open("mailto:support@cresc.io?subject=ENTERPRISE 문의", "_blank")
+      window.open("mailto:support@quanter.io?subject=ENTERPRISE 문의", "_blank")
       return
     }
     if (plan.id === "free") { navigate("/dashboard"); return }
@@ -150,7 +150,7 @@ export default function Pricing() {
             <path d="M12 4l-6 6 6 6" stroke={TEXT_MUT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
-        <span style={{ fontFamily:"'Orbitron', sans-serif", fontSize:12, fontWeight:700, letterSpacing:"1px" }}>CRESC SCANNER</span>
+        <span style={{ fontFamily:"'Orbitron', sans-serif", fontSize:12, fontWeight:700, letterSpacing:"1px" }}>QUANTER</span>
       </div>
 
       <div style={{ padding:"24px 18px" }}>
@@ -254,7 +254,7 @@ export default function Pricing() {
         <div style={{ background: SURFACE, border:`0.5px solid ${BORDER}`, borderRadius:12, padding:14, marginTop:20 }}>
           <div style={{ fontSize:9, color: TEXT_HINT, letterSpacing:"2px", marginBottom:10 }}>PREMIUM 구매 안내</div>
           {[
-            ["문의", "support@cresc.io"],
+            ["문의", "support@quanter.io"],
             ["월간", "₩29,000"],
             ["연간", "₩278,400 (20% 할인)"],
             ["활성화", "입금 확인 후 24시간 내"],

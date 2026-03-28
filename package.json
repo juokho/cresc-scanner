@@ -1,6 +1,6 @@
 {
-  "name": "cresc-scanner",
-  "description": "Cresc Quant Signal Scanner - Free/Premium Tier SaaS",
+  "name": "quanter",
+  "description": "QUANTER - Free/Premium Tier SaaS",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
