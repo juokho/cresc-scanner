@@ -5,6 +5,39 @@ const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "http://localhos
 // Trading API (port 8001)  
 const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "http://localhost:8001"
 
+// ============================================================
+// 인증 확인 (for Home.jsx compatibility)
+// ============================================================
+export async function checkAuth() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) {
+      return { is_premium: false, tier: "free", user: null }
+    }
+    
+    // api_keys 테이블에서 tier와 api_key 조회
+    const { data: apiKeyData, error } = await supabase
+      .from('api_keys')
+      .select('api_key,tier')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .single()
+    
+    if (error || !apiKeyData) {
+      return { is_premium: false, tier: "free", user: session.user }
+    }
+    
+    return {
+      is_premium: apiKeyData.tier === "premium",
+      tier: apiKeyData.tier || "free",
+      api_key: apiKeyData.api_key || "",
+      user: session.user
+    }
+  } catch (err) {
+    return { is_premium: false, tier: "free", user: null }
+  }
+}
+
 async function getHeaders() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
