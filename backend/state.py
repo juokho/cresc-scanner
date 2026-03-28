@@ -1,56 +1,57 @@
-import asyncio
-from typing import Dict, Any
-from threading import Lock
+import threading
+from collections import defaultdict
+from config import DEFAULT_BOT_CONFIG
 
-# 전역 상태 관리
-_state_lock = Lock()
-user_states: Dict[str, Dict[str, Any]] = {}
-user_exec_logs: Dict[str, list] = {}
-user_indicators: Dict[str, Dict[str, Any]] = {}
-user_position_meta: Dict[str, Dict[str, Any]] = {}
+# ============================================================
+# 락 (데드락 방지용 RLock)
+# ============================================================
+_state_lock   = threading.RLock()
+_signals_lock = threading.RLock()
+_exec_lock    = threading.RLock()
 
-def get_user_state(user_id: str) -> Dict[str, Any]:
-    """사용자 상태 가져오기"""
+# ============================================================
+# 인메모리 상태 저장소
+# ============================================================
+user_states:        dict[str, dict] = {}
+user_exec_logs:     dict[str, list] = defaultdict(list)
+user_signals:       dict[str, list] = defaultdict(list)
+user_indicators:    dict[str, dict] = defaultdict(dict)
+user_last_bar_ts:   dict[str, dict] = defaultdict(lambda: defaultdict(lambda: 0))
+user_position_meta: dict[str, dict[str, dict]] = defaultdict(dict)
+
+
+def get_user_state(user_id: str) -> dict:
     with _state_lock:
         if user_id not in user_states:
-            user_states[user_id] = {
-                "bot_running": False,
-                "current_positions": {},
-                "last_signal": None,
-                "settings": {
-                    "leverage": 50,
-                    "trade_pct": 0.05,
-                    "sl_atr_mult": 1.5,
-                    "tp_atr_mult": 3.5
-                }
-            }
+            user_states[user_id] = dict(DEFAULT_BOT_CONFIG)
         return user_states[user_id]
 
-def update_user_state(user_id: str, updates: Dict[str, Any]):
-    """사용자 상태 업데이트"""
-    with _state_lock:
-        if user_id in user_states:
-            user_states[user_id].update(updates)
 
-def add_exec_log(user_id: str, log_entry: str):
-    """실행 로그 추가"""
-    with _state_lock:
-        if user_id not in user_exec_logs:
-            user_exec_logs[user_id] = []
-        user_exec_logs[user_id].append({
-            "timestamp": asyncio.get_event_loop().time(),
-            "message": log_entry
-        })
-        # 최대 100개 로그 유지
-        if len(user_exec_logs[user_id]) > 100:
-            user_exec_logs[user_id] = user_exec_logs[user_id][-100:]
+def add_execution_log(
+    user_id: str,
+    symbol: str,
+    side: str,
+    status: str,
+    reason: str,
+    price: float = 0.0,
+) -> None:
+    import time
+    import logging
+    log = logging.getLogger("CRESCQ")
 
-def update_indicators(user_id: str, indicators: Dict[str, Any]):
-    """지표 업데이트"""
-    with _state_lock:
-        user_indicators[user_id] = indicators
+    entry = {
+        "time":   time.strftime("%H:%M:%S"),
+        "symbol": symbol,
+        "side":   side,
+        "status": status,
+        "reason": reason,
+        "price":  round(price, 4),
+    }
+    with _exec_lock:
+        logs = user_exec_logs[user_id]
+        logs.insert(0, entry)
+        if len(logs) > 50:
+            logs.pop()
 
-def update_position_meta(user_id: str, meta: Dict[str, Any]):
-    """포지션 메타데이터 업데이트"""
-    with _state_lock:
-        user_position_meta[user_id] = meta
+    icon = "🟢" if status == "SUCCESS" else "🔴"
+    log.info(f"{icon} [{status}] {symbol} {side} | {reason} | Price: {price}")

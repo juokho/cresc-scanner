@@ -1,122 +1,268 @@
-import asyncio
 import logging
-from typing import Dict, Any, Optional
-from binance import AsyncClient
-from binance.exceptions import BinanceAPIException
+import time
+from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor
 
-from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET
+import numpy as np
+import pandas as pd
+import urllib3
+from binance.client import Client
 
-logger = logging.getLogger(__name__)
+from config import (
+    ALL_TARGET_SYMBOLS, BAR_SIZE, MAX_WORKERS, MIN_NOTIONAL,
+    CHOP_LEN, THRESHOLD_TREND, HMA_LEN, Z_LEN, ATR_LEN,
+)
+from state import (
+    _state_lock, get_user_state,
+    user_states,  # <--- 이 부분이 추가되어 루프 에러를 방지합니다
+    user_last_bar_ts, user_indicators, user_position_meta,
+    add_execution_log,
+)
 
-class BinanceTrading:
-    def __init__(self):
-        self.client: Optional[AsyncClient] = None
-        self.user_positions: Dict[str, Dict] = {}
-        
-    async def init_client(self, api_key: str, secret_key: str):
-        """바이낸스 클라이언트 초기화"""
-        try:
-            self.client = AsyncClient(
-                api_key=api_key,
-                api_secret=secret_key,
-                testnet=BINANCE_TESTNET
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+log = logging.getLogger("CRESCQ")
+
+# ============================================================
+# 유틸리티
+# ============================================================
+def format_by_step(value, step_size) -> str:
+    d = Decimal(str(step_size))
+    r = (Decimal(str(value)) // d) * d
+    p = abs(d.as_tuple().exponent) if "." in str(step_size) else 0
+    return format(float(r), f".{p}f")
+
+def calculate_hma(series: pd.Series, length: int) -> pd.Series:
+    h, s = int(length / 2), int(np.sqrt(length))
+    def wma(x, l):
+        w = np.arange(1, l + 1)
+        return x.rolling(l).apply(lambda a: np.dot(a, w) / w.sum(), raw=True)
+    return wma(2 * wma(series, h) - wma(series, length), s)
+
+# ============================================================
+# 바이낸스 클라이언트 초기화
+# ============================================================
+def init_binance(user_id: str, api_key: str, secret_key: str) -> bool:
+    state = get_user_state(user_id)
+    try:
+        client = Client(api_key, secret_key, requests_params={"timeout": 20})
+        st = client.get_server_time()
+        client.timestamp_offset = st["serverTime"] - int(time.time() * 1000)
+        info = client.futures_exchange_info()
+        bn_symbols = {
+            s["symbol"]: s
+            for s in info["symbols"]
+            if s["symbol"] in ALL_TARGET_SYMBOLS
+        }
+        with _state_lock:
+            state["bn_client"]  = client
+            state["bn_symbols"] = bn_symbols
+        return True
+    except Exception as e:
+        log.error(f"Binance 인증 실패: {e}")
+        return False
+
+# ============================================================
+# 심볼 분석 (지표 계산 + 진입 시그널)
+# ============================================================
+def check_symbol_nexus(user_id: str, symbol: str) -> None:
+    try:
+        state     = get_user_state(user_id)
+        bn_client = state.get("bn_client")
+        if not bn_client:
+            return
+
+        klines = bn_client.futures_klines(symbol=symbol, interval=BAR_SIZE, limit=100)
+        df = pd.DataFrame(
+            klines,
+            columns=["ts", "open", "high", "low", "close", "vol",
+                     "cts", "qv", "t", "tb", "tq", "i"],
+        )
+        df[["open", "high", "low", "close", "vol"]] = (
+            df[["open", "high", "low", "close", "vol"]].apply(pd.to_numeric)
+        )
+
+        closed_ts = int(df.iloc[-2]["ts"])
+        if user_last_bar_ts[user_id][symbol] == closed_ts:
+            return
+        user_last_bar_ts[user_id][symbol] = closed_ts
+        df = df.iloc[:-1].copy()
+
+        # 지표 계산
+        hl = df["high"] - df["low"]
+        hc = (df["high"] - df["close"].shift(1)).abs()
+        lc = (df["low"]  - df["close"].shift(1)).abs()
+        df["tr"]  = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+        df["atr"] = df["tr"].ewm(alpha=1 / ATR_LEN, adjust=False).mean()
+
+        hh = df["high"].rolling(CHOP_LEN).max()
+        ll = df["low"].rolling(CHOP_LEN).min()
+        df["ci"]      = 100 * np.log10(df["tr"].rolling(CHOP_LEN).sum() / (hh - ll)) / np.log10(CHOP_LEN)
+        df["hma"]     = calculate_hma(df["close"], HMA_LEN)
+        df["z_score"] = (df["close"] - df["close"].rolling(Z_LEN).mean()) / df["close"].rolling(Z_LEN).std()
+
+        curr, prev   = df.iloc[-1], df.iloc[-2]
+        is_trending  = curr["ci"] < THRESHOLD_TREND
+
+        user_indicators[user_id][symbol] = {
+            "regime":  "TREND" if is_trending else "RANGE",
+            "ci":      round(float(curr["ci"]),      2),
+            "close":   round(float(curr["close"]),   4),
+            "atr":     round(float(curr["atr"]),     4),
+            "z_score": round(float(curr["z_score"]), 4),
+            "hma":     round(float(curr["hma"]),     4),
+        }
+
+        # 진입 조건
+        side, logic = None, ""
+        if is_trending:
+            if prev["close"] <= prev["hma"] and curr["close"] > curr["hma"]:
+                side, logic = "LONG",  "TREND_HMA"
+            elif prev["close"] >= prev["hma"] and curr["close"] < curr["hma"]:
+                side, logic = "SHORT", "TREND_HMA"
+        else:
+            if prev["z_score"] <= -2.0 and curr["z_score"] > -2.0:
+                side, logic = "LONG",  "RANGE_Z"
+            elif prev["z_score"] >= 2.0 and curr["z_score"] < 2.0:
+                side, logic = "SHORT", "RANGE_Z"
+
+        if side:
+            execute_binance_order(
+                user_id, symbol, side,
+                float(curr["close"]), float(curr["atr"]), logic,
             )
-            # 연결 테스트
-            await self.client.ping()
-            logger.info("Binance client initialized successfully")
-            return True
-        except BinanceAPIException as e:
-            logger.error(f"Binance API error: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Client initialization error: {e}")
-            return False
-    
-    async def get_account_info(self) -> Dict[str, Any]:
-        """계정 정보 가져오기"""
-        if not self.client:
-            raise ValueError("Client not initialized")
-        
-        try:
-            account = await self.client.futures_account()
-            return account
-        except Exception as e:
-            logger.error(f"Failed to get account info: {e}")
-            return {}
-    
-    async def get_positions(self) -> list:
-        """현재 포지션 가져오기"""
-        if not self.client:
-            raise ValueError("Client not initialized")
-        
-        try:
-            positions = await self.client.futures_position_information()
-            # 비어있지 않은 포지션만 필터링
-            active_positions = [pos for pos in positions if float(pos['positionAmt']) != 0]
-            return active_positions
-        except Exception as e:
-            logger.error(f"Failed to get positions: {e}")
-            return []
-    
-    async def place_order(self, symbol: str, side: str, quantity: float, 
-                        order_type: str = "MARKET", **kwargs) -> Dict[str, Any]:
-        """주문 실행"""
-        if not self.client:
-            raise ValueError("Client not initialized")
-        
-        try:
-            order = await self.client.futures_create_order(
-                symbol=symbol,
-                side=side,
-                type=order_type,
-                quantity=quantity,
-                **kwargs
-            )
-            logger.info(f"Order placed: {order}")
-            return order
-        except Exception as e:
-            logger.error(f"Failed to place order: {e}")
-            return {}
-    
-    async def close_position(self, symbol: str) -> bool:
-        """포지션 청산"""
-        try:
-            positions = await self.get_positions()
-            for pos in positions:
-                if pos['symbol'] == symbol:
-                    side = "SELL" if float(pos['positionAmt']) > 0 else "BUY"
-                    quantity = abs(float(pos['positionAmt']))
-                    await self.place_order(symbol, side, quantity)
-                    logger.info(f"Position closed for {symbol}")
-                    return True
-            return False
-        except Exception as e:
-            logger.error(f"Failed to close position {symbol}: {e}")
-            return False
 
-# 전역 트레이딩 인스턴스
-trading_instance = BinanceTrading()
+    except Exception as e:
+        log.error(f"{symbol} 분석 오류: {e}", exc_info=True)
 
-async def init_binance(api_key: str, secret_key: str) -> bool:
-    """바이낸스 초기화"""
-    return await trading_instance.init_client(api_key, secret_key)
+# ============================================================
+# 주문 실행
+# ============================================================
+def execute_binance_order(
+    user_id: str,
+    symbol: str,
+    side: str,
+    price: float,
+    atr_val: float,
+    logic: str,
+) -> None:
+    state = get_user_state(user_id)
+    if not state["is_order_enabled"]:
+        return
 
-async def monitor_loop(user_id: str, settings: Dict[str, Any]):
-    """모니터링 루프"""
+    try:
+        bn_client = state["bn_client"]
+
+        # 포지션 중복 진입 방지
+        pos = bn_client.futures_position_information(symbol=symbol)
+        if any(float(p.get("positionAmt", 0)) != 0 for p in pos):
+            return
+
+        leverage = state["leverage"]
+        filters  = state["bn_symbols"][symbol]["filters"]
+        step     = next(f["stepSize"] for f in filters if f["filterType"] == "LOT_SIZE")
+
+        bn_client.futures_change_leverage(symbol=symbol, leverage=leverage)
+        acc = bn_client.futures_account(recvWindow=40000)
+
+        qty = format_by_step(
+            (float(acc["availableBalance"]) * state["trade_pct"] * leverage) / price,
+            step,
+        )
+        if float(qty) * price < MIN_NOTIONAL:
+            add_execution_log(user_id, symbol, side, "IGNORED", "Size too small", price)
+            return
+
+        order_side = "BUY" if side == "LONG" else "SELL"
+        bn_client.futures_create_order(
+            symbol=symbol, side=order_side, type="MARKET", quantity=qty
+        )
+        user_position_meta[user_id][symbol] = {
+            "entry": price, "atr": atr_val, "side": side, "hwm": price
+        }
+        add_execution_log(user_id, symbol, side, "SUCCESS", f"Entry: {logic}", price)
+
+    except Exception as e:
+        add_execution_log(user_id, symbol, side, "ERROR", str(e), price)
+        log.error(f"주문 실행 오류 {symbol}: {e}", exc_info=True)
+
+# ============================================================
+# 백그라운드 루프
+# ============================================================
+async def monitor_loop() -> None:
+    import asyncio
     while True:
         try:
-            # 여기에 시그널 분석 로직 추가
-            await asyncio.sleep(10)  # 10초마다 체크
+            active_users = [
+                uid for uid, st in user_states.items()
+                if st.get("is_order_enabled")
+            ]
+            for user_id in active_users:
+                state   = get_user_state(user_id)
+                targets = state.get("selected_symbols", ALL_TARGET_SYMBOLS)
+                loop = asyncio.get_event_loop()
+                await asyncio.gather(*(
+                    loop.run_in_executor(None, check_symbol_nexus, user_id, sym)
+                    for sym in targets
+                ))
         except Exception as e:
-            logger.error(f"Monitor loop error: {e}")
-            await asyncio.sleep(30)  # 에러 시 30초 대기
+            log.error(f"monitor_loop 오류: {e}", exc_info=True)
+        await asyncio.sleep(2)
 
-async def position_cleanup_loop(user_id: str):
-    """포지션 정리 루프"""
+async def position_cleanup_loop() -> None:
+    import asyncio
     while True:
         try:
-            # 여기에 포지션 관리 로직 추가
-            await asyncio.sleep(60)  # 1분마다 체크
+            active_users = [
+                uid for uid, st in user_states.items()
+                if st.get("is_order_enabled")
+            ]
+            for user_id in active_users:
+                state     = get_user_state(user_id)
+                bn_client = state.get("bn_client")
+                if not bn_client:
+                    continue
+
+                pos_info = bn_client.futures_position_information()
+                for p in pos_info:
+                    amt    = float(p.get("positionAmt", 0))
+                    symbol = p["symbol"]
+
+                    if amt == 0:
+                        user_position_meta[user_id].pop(symbol, None)
+                        continue
+
+                    meta = user_position_meta[user_id].get(symbol)
+                    if not meta:
+                        continue
+
+                    mark     = float(p.get("markPrice", 0))
+                    entry    = meta["entry"]
+                    atr      = meta["atr"]
+                    side     = meta["side"]
+                    sl_mult  = state["sl_atr_mult"]
+                    tp_mult  = state["tp_atr_mult"]
+
+                    should_close, reason = False, ""
+                    if state["sl_mode"] == "atr":
+                        if side == "LONG":
+                            if mark <= entry - atr * sl_mult:
+                                should_close, reason = True, "SL Hit"
+                            elif mark >= entry + atr * tp_mult:
+                                should_close, reason = True, "TP Hit"
+                        else:
+                            if mark >= entry + atr * sl_mult:
+                                should_close, reason = True, "SL Hit"
+                            elif mark <= entry - atr * tp_mult:
+                                should_close, reason = True, "TP Hit"
+
+                    if should_close:
+                        close_side = "SELL" if amt > 0 else "BUY"
+                        bn_client.futures_create_order(
+                            symbol=symbol, side=close_side,
+                            type="MARKET", quantity=abs(amt), reduceOnly=True,
+                        )
+                        add_execution_log(user_id, symbol, "EXIT", "SUCCESS", reason, mark)
+
         except Exception as e:
-            logger.error(f"Position cleanup error: {e}")
-            await asyncio.sleep(60)
+            log.error(f"position_cleanup_loop 오류: {e}", exc_info=True)
+        await asyncio.sleep(1)

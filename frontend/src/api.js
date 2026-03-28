@@ -1,241 +1,240 @@
-// ============================================================
-// FastAPI 백엔드 연동 API - 빠른 tier 방식
-// ============================================================
-
 import { supabase } from "./supabase"
 
-const API_URL = import.meta.env.VITE_API_URL || ""
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-// 현재 사용자의 tier 정보 (로그인 시 한 번 조회)
-let currentTier = localStorage.getItem('quanter_tier') || "free"
-let currentApiKey = ""
-
-// ============================================================
-// 인증 및 티어 확인 (로그인 시 한 번 호출)
-// ============================================================
-export async function checkAuth() {
+async function getHeaders() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) {
-      currentTier = "free"
-      currentApiKey = ""
-      return { is_premium: false, tier: "free", user: null }
+    const token = session?.access_token || ""
+    
+    if (!token) {
+      throw new Error("로그인이 필요합니다")
     }
-    
-    // api_keys 테이블에서 tier와 api_key 한 번에 조회
-    const { data: apiKeyData, error } = await supabase
-      .from('api_keys')
-      .select('api_key,tier')
-      .eq('user_id', session.user.id)
-      .eq('is_active', true)
-      .single()
-    
-    if (error || !apiKeyData) {
-      currentTier = "free"
-      currentApiKey = ""
-      return { is_premium: false, tier: "free", user: session.user }
-    }
-    
-    // 전역 변수에 저장
-    currentTier = apiKeyData.tier || "free"
-    currentApiKey = apiKeyData.api_key || ""
     
     return {
-      is_premium: currentTier === "premium",
-      tier: currentTier,
-      api_key: currentApiKey,
-      user: session.user
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
     }
-  } catch (err) {
-    currentTier = "free"
-    currentApiKey = ""
-    return { is_premium: false, tier: "free", user: null }
+  } catch (error) {
+    console.error("인증 토큰 가져오기 실패:", error)
+    throw new Error("인증 오류가 발생했습니다. 다시 로그인해주세요.")
   }
 }
 
 // ============================================================
-// API 요청 헤더 생성 (tier와 api_key 포함)
+// 서버 상태
+// [버그수정] catch에서 return하지 않고 throw → 호출부에서 에러 감지 가능
 // ============================================================
-function getHeaders() {
-  const headers = {
-    "Content-Type": "application/json",
-    "X-Tier": currentTier,           // tier 정보
-    "X-API-Key": currentApiKey || "" // API 키 (없으면 빈 문자열)
-  }
-  return headers
-}
-
-export function getApiKey() {
-  return currentApiKey
-}
-
-export function getTier() {
-  return currentTier
-}
-
-export function setTier(tier) {
-  currentTier = tier
-  localStorage.setItem('quanter_tier', tier)
-}
-
-export function setApiKey(key) {
-  currentApiKey = key
+export async function checkServerStatus() {
+  const headers = await getHeaders()
+  const res = await fetch(`${API_URL}/status`, { headers })
+  if (!res.ok) throw new Error(`서버 오류: ${res.status}`)
+  return await res.json()
 }
 
 // ============================================================
-// 시그널 및 포지션 데이터 조회
+// 지표 조회
 // ============================================================
-export async function fetchSignals(timeframe = "5m") {
+export async function fetchIndicators() {
   try {
-    const res = await fetch(`${API_URL}/api/data?tf=${timeframe}`, { headers: getHeaders() })
-    if (!res.ok) return { signals: [], scan: {}, tier: "free" }
-    const data = await res.json()
-    return {
-      signals: data.signals || [],
-      scan: data.scan || {},
-      total: data.total || 0,
-      active: data.active || 0,
-      tier: data.tier || "free",
-      timeframe: data.timeframe || timeframe
-    }
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/indicators`, { headers })
+    if (!res.ok) return {}
+    const json = await res.json()
+    return json.indicators || {}
   } catch {
-    return { signals: [], scan: {}, tier: "free" }
+    return {}
   }
 }
 
 // ============================================================
-// 온디맨드 스캔 트리거
+// 시그널 로그 조회
 // ============================================================
-export async function triggerScan(timeframe = "5m") {
+export async function fetchSignals() {
   try {
-    const res = await fetch(`${API_URL}/api/scan?tf=${timeframe}`, { 
-      method: "POST",
-      headers: getHeaders() 
-    })
-    if (!res.ok) return { success: false }
-    return await res.json()
-  } catch {
-    return { success: false }
-  }
-}
-
-// ============================================================
-// 거래 로그 조회 (유료 전용)
-// ============================================================
-export async function fetchTrades() {
-  try {
-    const res = await fetch(`${API_URL}/api/log`, { headers: getHeaders() })
-    if (res.status === 403) {
-      return { error: "premium_required", data: [] }
-    }
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/signals`, { headers })
     if (!res.ok) return []
-    return await res.json()
+    const json = await res.json()
+    return json.signals || []
   } catch {
     return []
   }
 }
 
 // ============================================================
-// 서버 상태 확인
+// 봇 설정 업데이트
 // ============================================================
-export async function checkServerStatus() {
-  try {
-    const res = await fetch(`${API_URL}/api/data`, { headers: getHeaders() })
-    return { online: res.ok, status: res.status }
-  } catch {
-    return { online: false, status: 0 }
-  }
-}
-
-// ============================================================
-// 구독 정보 조회 (현재 백엔드와 호환)
-// ============================================================
-export async function fetchUserSubscription() {
-  return await checkAuth()
-}
-
-// ============================================================
-// 기능 접근 확인
-// ============================================================
-export async function checkFeatureAccess(feature) {
-  const auth = await checkAuth()
-  const isPremium = auth.is_premium
-  
-  // 무료 기능
-  if (feature === "signals" || feature === "view_signals") {
-    return { has_access: true, plan_type: auth.tier }
-  }
-  
-  // 유료 기능
-  if (feature === "positions" || feature === "history" || feature === "discord") {
-    return { has_access: isPremium, plan_type: auth.tier }
-  }
-  
-  return { has_access: isPremium, plan_type: auth.tier }
-}
-
-// ============================================================
-// 다음은 SaaS 원본과의 호환을 위한 Stub 함수들
-// 현재 백엔드에서 미지원하는 기능
-// ============================================================
-
-export async function fetchIndicators() {
-  // 현재 백엔드에서 /indicators 미지원 - signals에서 파생
-  const data = await fetchSignals()
-  return data.signals.reduce((acc, s) => {
-    acc[s.symbol] = { ci: s.ci, z: s.z, regime: s.regime }
-    return acc
-  }, {})
-}
-
-export async function fetchBalance() {
-  // 현재 백엔드에서 /balance 미지원
-  return null
-}
-
-export async function fetchPositions() {
-  // /api/data에서 포지션 정보 추출
-  const data = await fetchSignals()
-  return data.signals.filter(s => s.position).map(s => ({
-    symbol: s.symbol,
-    side: s.position.side,
-    entry: s.position.entry,
-    sl: s.position.sl,
-    tp: s.position.tp,
-    be_active: s.position.be_active,
-    current_price: s.price,
-    name: s.name
-  }))
-}
-
-export async function fetchUserSettings() {
-  // 현재 백엔드에서 /user/settings 미지원 - 로컬 스토리지 사용
-  return {
-    leverage: parseInt(localStorage.getItem('settings_leverage')) || 50,
-    trade_pct: parseFloat(localStorage.getItem('settings_trade_pct')) || 0.05,
-    sl_atr_mult: parseFloat(localStorage.getItem('settings_sl_atr_mult')) || 1.5,
-    tp_atr_mult: parseFloat(localStorage.getItem('settings_tp_atr_mult')) || 3.5,
-  }
-}
-
-export async function saveUserSettings(settings) {
-  // 현재 백엔드에서 저장 미지원 - 로컬 스토리지 사용
-  localStorage.setItem('settings_leverage', settings.leverage)
-  localStorage.setItem('settings_trade_pct', settings.tradePct / 100)
-  localStorage.setItem('settings_sl_atr_mult', settings.slAtrMult)
-  localStorage.setItem('settings_tp_atr_mult', settings.tpAtrMult)
-  return { success: true }
-}
-
 export async function updateBotSettings(settings) {
-  return await saveUserSettings(settings)
+  const headers = await getHeaders()
+  const res = await fetch(`${API_URL}/bot/settings`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      leverage:         settings.leverage,
+      trade_pct:        settings.tradePct / 100,
+      sl_atr_mult:      settings.slAtrMult ?? 1.5,
+      tp_atr_mult:      settings.tpAtrMult ?? 3.5,
+      sl_mode:          settings.slMode || "atr",
+      selected_symbols: settings.selected_symbols || ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    }),
+  })
+  if (!res.ok) {
+    let detail = "설정 업데이트 실패"
+    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
+    throw new Error(`[${res.status}] ${detail}`)
+  }
+  return await res.json()
 }
 
-export async function startBot(settings) {
-  // 현재 백엔드에서 봇 제어 미지원
-  return { success: false, message: "Bot control not available in current backend" }
+// ============================================================
+// 봇 시작
+// [버그수정] || 대신 ?? 사용 → 0 같은 falsy 값이 덮어씌워지지 않음
+// ============================================================
+export async function startBot({ leverage, trade_pct, sl_atr_mult, tp_atr_mult, sl_mode }) {
+  const headers = await getHeaders()
+  const res = await fetch(`${API_URL}/bot/start`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      leverage:    leverage    ?? 50,
+      trade_pct:   trade_pct  ?? 0.05,
+      sl_atr_mult: sl_atr_mult ?? 1.5,
+      tp_atr_mult: tp_atr_mult ?? 3.5,
+      sl_mode:     sl_mode    ?? "atr",
+    }),
+  })
+  if (!res.ok) {
+    let detail = "봇 시작 실패"
+    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
+    throw new Error(`[${res.status}] ${detail}`)
+  }
+  return await res.json()
 }
 
+// ============================================================
+// 봇 정지
+// ============================================================
 export async function stopBot() {
-  return { success: false, message: "Bot control not available in current backend" }
+  const headers = await getHeaders()
+  const res = await fetch(`${API_URL}/bot/stop`, {
+    method: "POST",
+    headers,
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || "봇 정지 실패")
+  }
+  return await res.json()
+}
+
+// ============================================================
+// 잔고 조회
+// ============================================================
+export async function fetchBalance() {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/balance`, { headers })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// ============================================================
+// 포지션 조회
+// ============================================================
+export async function fetchPositions() {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/positions`, { headers })
+    if (!res.ok) return []
+    const json = await res.json()
+    return json.positions || []
+  } catch {
+    return []
+  }
+}
+
+// ============================================================
+// 사용자 설정 조회
+// ============================================================
+export async function fetchUserSettings() {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/user/settings`, { headers })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// ============================================================
+// 사용자 설정 저장
+// ============================================================
+export async function saveUserSettings(settings) {
+  const headers = await getHeaders()
+  const res = await fetch(`${API_URL}/user/settings`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      leverage:         settings.leverage,
+      trade_pct:        settings.tradePct / 100,
+      sl_atr_mult:      settings.slAtrMult ?? 1.5,
+      tp_atr_mult:      settings.tpAtrMult ?? 3.5,
+      sl_mode:          settings.slMode || "atr",
+      selected_symbols: settings.selected_symbols || ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    }),
+  })
+  if (!res.ok) {
+    let detail = "설정 저장 실패"
+    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
+    throw new Error(`[${res.status}] ${detail}`)
+  }
+  return await res.json()
+}
+
+export async function fetchUserSubscription() {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/subscription`, { headers })
+    if (!res.ok) return null
+    return await res.json()
+  } catch (error) {
+    console.error("구독 정보 조회 실패:", error)
+    return null
+  }
+}
+
+export async function checkFeatureAccess(feature) {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/subscription/check`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ feature })
+    })
+    if (!res.ok) return { has_access: false, plan_type: "free" }
+    return await res.json()
+  } catch (error) {
+    console.error("기능 접근 확인 실패:", error)
+    return { has_access: false, plan_type: "free" }
+  }
+}
+
+// ============================================================
+// 거래 내역 조회
+// ============================================================
+export async function fetchTrades() {
+  try {
+    const headers = await getHeaders()
+    const res = await fetch(`${API_URL}/trades`, { headers })
+    if (!res.ok) return []
+    const json = await res.json()
+    return json.trades || []
+  } catch {
+    return []
+  }
 }

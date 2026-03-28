@@ -1,9 +1,11 @@
 import asyncio
 import logging
+
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
+from supabase import create_client
 
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ALLOWED_ORIGINS
 from crypto_utils import encrypt, decrypt
@@ -24,214 +26,337 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
-log = logging.getLogger("QUANTER")
+log = logging.getLogger("CRESCQ")
 
 # ============================================================
 # [2] Supabase 클라이언트
 # ============================================================
-try:
-    from supabase import create_client
-    supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-except ImportError:
-    log.warning("Supabase not installed, using mock client")
-    supabase_client = None
+supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # ============================================================
 # [3] 요청 데이터 모델 (Pydantic)
 # ============================================================
 class BotStartRequest(BaseModel):
-    leverage: int = Field(50, ge=1, le=125)
-    trade_pct: float = Field(0.05, ge=0.001, le=1.0)
-    sl_atr_mult: float = Field(1.5, ge=0.1, le=10.0)
-    tp_atr_mult: float = Field(3.5, ge=0.1, le=20.0)
-    sl_mode: str = Field("atr")
-    selected_symbols: list = Field(default_factory=lambda: ["BTCUSDT", "ETHUSDT", "SOLUSDT"])
+    leverage:         int   = Field(50,   ge=1,   le=125)
+    trade_pct:        float = Field(0.05, ge=0.001, le=1.0)
+    sl_atr_mult:      float = Field(1.5,  ge=0.1, le=10.0)
+    tp_atr_mult:      float = Field(3.5,  ge=0.1, le=20.0)
+    sl_mode:          str   = Field("atr")
+    selected_symbols: list  = Field(default_factory=lambda: ["BTCUSDT", "ETHUSDT", "SOLUSDT"])
 
 class BotSettingsRequest(BaseModel):
-    leverage: int = Field(50, ge=1, le=125)
-    trade_pct: float = Field(0.05, ge=0.001, le=1.0)
-    sl_atr_mult: float = Field(1.5, ge=0.1, le=10.0)
-    tp_atr_mult: float = Field(3.5, ge=0.1, le=20.0)
+    leverage:         int   = Field(50,   ge=1,   le=125)
+    trade_pct:        float = Field(0.05, ge=0.001, le=1.0)
+    sl_atr_mult:      float = Field(1.5,  ge=0.1, le=10.0)
+    tp_atr_mult:      float = Field(3.5,  ge=0.1, le=20.0)
+    sl_mode:          str   = Field("atr")
+    selected_symbols: list  = None
 
 class ApiKeyRequest(BaseModel):
-    api_key: str
+    api_key:    str
     secret_key: str
 
 # ============================================================
-# [4] 애플리케이션 라이프사이클
+# [4] 사용자 인증 (Supabase Auth)
+# ============================================================
+async def get_current_user(authorization: str = Header(None)) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "인증 토큰이 없습니다")
+    try:
+        res = supabase_client.auth.get_user(authorization.split(" ")[1])
+        return res.user.id
+    except Exception:
+        raise HTTPException(401, "유효하지 않은 토큰입니다")
+
+# 구독 정보 조회 함수
+async def get_user_subscription(user_id: str) -> SubscriptionInfo:
+    try:
+        res = supabase_client.table("subscriptions").select("*").eq("user_id", user_id).execute()
+        if res.data and len(res.data) > 0:
+            sub = res.data[0]
+            plan_type = sub["plan"]
+            
+            # 만료 확인 (중요!)
+            is_expired = False
+            if sub.get("expires_at"):
+                try:
+                    expires_at = datetime.fromisoformat(sub["expires_at"].replace('Z', '+00:00'))
+                    is_expired = expires_at < datetime.now(timezone.utc)
+                except:
+                    # 날짜 파싱 실패 시 만료로 간주
+                    is_expired = True
+            else:
+                # expires_at이 없으면 만료로 간주
+                is_expired = True
+            
+            # 만료되었으면 자동으로 Free 플랜으로 변경
+            if is_expired:
+                plan_type = "free"
+                
+            # 플랜별 기능 정의 (Pricing.jsx와 일치)
+            features = {
+                "free": ["basic_trading", "3_symbols", "manual_control"],
+                "basic": ["basic_trading", "5_symbols", "manual_control", "auto_trading_10"],
+                "pro": ["advanced_trading", "unlimited_symbols", "auto_settings", "basic_analytics", "discord_alert"],
+                "elite": ["pro_trading", "unlimited_symbols", "advanced_analytics", "api_access", "team_features", "leverage_125x"]
+            }.get(plan_type, [])
+            
+            return SubscriptionInfo(
+                plan_type=plan_type,
+                status="expired" if is_expired else "active",
+                features=features
+            )
+        else:
+            # 기본 플랜 (무료)
+            return SubscriptionInfo(
+                plan_type="free",
+                status="active",
+                features=["basic_trading", "3_symbols", "manual_control"]
+            )
+    except Exception as e:
+        log.error(f"구독 정보 조회 오류: {e}")
+        return SubscriptionInfo(
+            plan_type="free",
+            status="active",
+            features=["basic_trading", "3_symbols", "manual_control"]
+        )
+# 기능 접근 권한 확인 함수
+def check_feature_access(user_id: str, required_feature: str) -> bool:
+    subscription = get_user_subscription(user_id)
+    return required_feature in subscription.features
+
+# ============================================================
+# [5] 앱 수명 주기 관리 (백그라운드 루프 시작)
 # ============================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 시작 시 실행
-    log.info("QUANTER Trading Bot starting...")
+    # 서버 시작 시 트레이딩 엔진 가동
+    asyncio.create_task(monitor_loop())
+    asyncio.create_task(position_cleanup_loop())
     yield
-    # 종료 시 실행
-    log.info("QUANTER Trading Bot shutting down...")
 
 # ============================================================
-# [5] FastAPI 앱 생성
+# [6] FastAPI 앱 및 CORS 설정
 # ============================================================
-app = FastAPI(
-    title="QUANTER Trading Bot API",
-    description="AI 기반 코인 선물 자동매매 봇",
-    version="1.0.0",
-    lifespan=lifespan
-)
 
-# ============================================================
-# [6] CORS 미들웨어
-# ============================================================
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ============================================================
-# [7] 인증 헬퍼 함수
+# [7] API 엔드포인트
 # ============================================================
-async def get_current_user(authorization: str = Header(None)):
-    """현재 사용자 인증"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header missing")
-    
-    token = authorization.replace("Bearer ", "")
-    try:
-        if supabase_client:
-            # Supabase로 토큰 검증
-            user = supabase_client.auth.get_user(token)
-            return user
-        else:
-            # 개발용 모의 사용자
-            return {"id": "dev_user", "email": "dev@example.com"}
-    except Exception as e:
-        log.error(f"Authentication error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-# ============================================================
-# [8] API 엔드포인트
-# ============================================================
-
-@app.get("/")
-async def root():
-    """루트 엔드포인트"""
-    return {"message": "QUANTER Trading Bot API", "status": "running"}
 
 @app.get("/status")
-async def get_status():
-    """서버 상태 확인"""
-    return {"status": "healthy", "timestamp": asyncio.get_event_loop().time()}
-
-@app.post("/trading/start")
-async def start_bot(request: BotStartRequest, user = Depends(get_current_user)):
-    """봇 시작"""
-    user_id = user["id"]
-    
-    try:
-        # 사용자 상태 업데이트
-        user_state = get_user_state(user_id)
-        user_state["bot_running"] = True
-        user_state["settings"] = request.dict()
-        
-        # 봇 시작 로직
-        log.info(f"Starting bot for user {user_id}")
-        
-        # TODO: 실제 봇 시작 로직 구현
-        
-        return {"success": True, "message": "Bot started successfully"}
-    
-    except Exception as e:
-        log.error(f"Failed to start bot: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/trading/stop")
-async def stop_bot(user = Depends(get_current_user)):
-    """봇 중지"""
-    user_id = user["id"]
-    
-    try:
-        # 사용자 상태 업데이트
-        user_state = get_user_state(user_id)
-        user_state["bot_running"] = False
-        
-        # 봇 중지 로직
-        log.info(f"Stopping bot for user {user_id}")
-        
-        # TODO: 실제 봇 중지 로직 구현
-        
-        return {"success": True, "message": "Bot stopped successfully"}
-    
-    except Exception as e:
-        log.error(f"Failed to stop bot: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/trading/status")
-async def get_bot_status(user = Depends(get_current_user)):
-    """봇 상태 조회"""
-    user_id = user["id"]
-    user_state = get_user_state(user_id)
-    
+async def get_status(user_id: str = Depends(get_current_user)):
+    st = get_user_state(user_id)
     return {
-        "bot_running": user_state["bot_running"],
-        "settings": user_state["settings"],
-        "positions": user_state.get("current_positions", {})
+        "bot_running":      st["is_order_enabled"],
+        "selected_symbols": st["selected_symbols"],
+        "leverage":         st["leverage"],
+        "trade_pct":        st["trade_pct"],
+        "sl_atr_mult":      st["sl_atr_mult"],
+        "tp_atr_mult":      st["tp_atr_mult"],
+        "sl_mode":          st["sl_mode"],
+        "indicators":       user_indicators.get(user_id, {}),
+        "execution_logs":   user_exec_logs[user_id],
     }
 
-@app.post("/trading/settings")
-async def update_settings(request: BotSettingsRequest, user = Depends(get_current_user)):
-    """봇 설정 업데이트"""
-    user_id = user["id"]
-    
-    try:
-        user_state = get_user_state(user_id)
-        user_state["settings"].update(request.dict())
-        
-        return {"success": True, "message": "Settings updated"}
-    
-    except Exception as e:
-        log.error(f"Failed to update settings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/bot/start")
+async def start_bot(req: BotStartRequest, user_id: str = Depends(get_current_user)):
+    res = supabase_client.table("api_keys").select("*").eq("user_id", user_id).execute()
+    if not res.data:
+        raise HTTPException(404, "API Key가 등록되지 않았습니다")
 
-@app.post("/trading/api-key")
-async def set_api_key(request: ApiKeyRequest, user = Depends(get_current_user)):
-    """API Key 설정"""
-    user_id = user["id"]
+    api = decrypt(res.data[0]["api_key_encrypted"])
+    sec = decrypt(res.data[0]["secret_key_encrypted"])
     
+    if not init_binance(user_id, api, sec):
+        raise HTTPException(400, "Binance 인증에 실패했습니다")
+
+    with _state_lock:
+        state = get_user_state(user_id)
+        state.update({
+            "is_order_enabled": True,
+            "leverage":         req.leverage,
+            "trade_pct":        req.trade_pct,
+            "sl_atr_mult":      req.sl_atr_mult,
+            "tp_atr_mult":      req.tp_atr_mult,
+            "sl_mode":          req.sl_mode,
+            "selected_symbols": req.selected_symbols,
+        })
+    return {"message": "봇이 시작되었습니다", "status": "success"}
+
+@app.post("/bot/stop")
+async def stop_bot(user_id: str = Depends(get_current_user)):
+    with _state_lock:
+        get_user_state(user_id)["is_order_enabled"] = False
+    return {"message": "봇이 정지되었습니다"}
+
+@app.get("/positions")
+async def get_positions(user_id: str = Depends(get_current_user)):
+    state = get_user_state(user_id)
+    if not state.get("bn_client"):
+        return {"positions": []}
+    
+    pos = state["bn_client"].futures_position_information()
+    active = []
+    
+    for p in pos:
+        amt = float(p.get("positionAmt", 0))
+        if amt != 0:
+            entry_price = float(p["entryPrice"])
+            mark_price = float(p["markPrice"])
+            pnl = float(p["unRealizedProfit"])
+            # 바이낸스에서 설정된 실제 레버리지값 가져오기
+            leverage = float(p.get("leverage", 1))
+            
+            # 직접 ROE 계산 (롱/숏 구분)
+            side = "LONG" if amt > 0 else "SHORT"
+            if side == "LONG":
+                roe = ((mark_price - entry_price) / entry_price) * leverage * 100
+            else:
+                roe = ((entry_price - mark_price) / entry_price) * leverage * 100
+
+            active.append({
+                "symbol": p["symbol"],
+                "side":   side,
+                "qty":    abs(amt),
+                "entry":  entry_price,
+                "mark":   mark_price,
+                "pnl":    pnl,
+                "roe":    round(roe, 2)  # 소수점 2자리까지 계산해서 전달
+            })
+    return {"positions": active}
+
+@app.get("/balance")
+async def get_balance(user_id: str = Depends(get_current_user)):
+    state = get_user_state(user_id)
+    if not state.get("bn_client"):
+        return {"balance": 0}
+    b = state["bn_client"].futures_account_balance()
+    usdt = next((i for i in b if i["asset"] == "USDT"), {"balance": 0})
+    return {"balance": float(usdt["balance"])}
+
+@app.get("/subscription")
+async def get_subscription(user_id: str = Depends(get_current_user)):
+    """사용자 구독 정보 조회"""
+    return get_user_subscription(user_id)
+
+@app.post("/subscription/check")
+async def check_subscription_access(feature: str, user_id: str = Depends(get_current_user)):
+    """기능 접근 권한 확인"""
+    has_access = check_feature_access(user_id, feature)
+    return {
+        "has_access": has_access,
+        "feature": feature,
+        "plan_type": get_user_subscription(user_id).plan_type
+    }
+@app.post("/bot/settings")
+async def update_bot_settings(req: BotSettingsRequest, user_id: str = Depends(get_current_user)):
+    # 플랜별 설정 제한
+    subscription = get_user_subscription(user_id)
+    
+    # Free 플랜: 3개 심볼 제한
+    if subscription.plan_type == "free" and req.selected_symbols and len(req.selected_symbols) > 3:
+        raise HTTPException(403, "Free 플랜은 최대 3개 심볼만 선택 가능합니다")
+    
+    # Basic 플랜: 5개 심볼 제한
+    if subscription.plan_type == "basic" and req.selected_symbols and len(req.selected_symbols) > 5:
+        raise HTTPException(403, "Basic 플랜은 최대 5개 심볼만 선택 가능합니다")
+    
+    # Pro/Elite: 레버리지 제한 확인
+    max_leverage = {
+        "free": 50,
+        "basic": 50,
+        "pro": 75,
+        "elite": 125
+    }.get(subscription.plan_type, 50)
+    
+    if req.leverage > max_leverage:
+        raise HTTPException(403, f"{subscription.plan_type.upper()} 플랜은 최대 {max_leverage}x 레버리지만 가능합니다")
+    
+    with _state_lock:
+        state = get_user_state(user_id)
+        state.update({
+            "leverage":         req.leverage,
+            "trade_pct":        req.trade_pct,
+            "sl_atr_mult":      req.sl_atr_mult,
+            "tp_atr_mult":      req.tp_atr_mult,
+            "sl_mode":          req.sl_mode,
+            "selected_symbols": req.selected_symbols or state.get("selected_symbols", ["BTCUSDT", "ETHUSDT", "SOLUSDT"]),
+        })
+    return {"message": "설정이 업데이트되었습니다", "status": "success"}
+
+@app.get("/user/settings")
+async def get_user_settings(user_id: str = Depends(get_current_user)):
     try:
-        # API Key 암호화 저장
-        encrypted_key = encrypt(request.api_key)
-        encrypted_secret = encrypt(request.secret_key)
-        
-        # TODO: 데이터베이스에 저장
-        
-        # 바이낸스 연결 테스트
-        success = await init_binance(request.api_key, request.secret_key)
-        
-        if success:
-            return {"success": True, "message": "API Key set successfully"}
+        res = supabase_client.table("user_settings").select("*").eq("user_id", user_id).execute()
+        if res.data:
+            return res.data[0]
         else:
-            raise HTTPException(status_code=400, detail="Invalid API Key")
-    
+            # 기본 설정 반환
+            return {
+                "leverage": 50,
+                "trade_pct": 0.05,
+                "sl_atr_mult": 1.5,
+                "tp_atr_mult": 3.5,
+                "sl_mode": "atr",
+                "selected_symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+            }
     except Exception as e:
-        log.error(f"Failed to set API key: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        log.error(f"설정 조회 오류: {e}")
+        raise HTTPException(500, "설정 조회 실패")
 
-@app.get("/trading/positions")
-async def get_positions(user = Depends(get_current_user)):
-    """현재 포지션 조회"""
-    user_id = user["id"]
-    
+@app.post("/user/settings")
+async def save_user_settings(req: BotSettingsRequest, user_id: str = Depends(get_current_user)):
     try:
-        # TODO: 실제 포지션 조회 로직
-        user_state = get_user_state(user_id)
-        return {"positions": user_state.get("current_positions", {})}
-    
+        settings_data = {
+            "user_id": user_id,
+            "leverage": req.leverage,
+            "trade_pct": req.trade_pct,
+            "sl_atr_mult": req.sl_atr_mult,
+            "tp_atr_mult": req.tp_atr_mult,
+            "sl_mode": req.sl_mode,
+            "selected_symbols": req.selected_symbols or ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+            "updated_at": "now()"
+        }
+        
+        supabase_client.table("user_settings").upsert(
+            settings_data,
+            on_conflict="user_id"
+        ).execute()
+        
+        # 현재 봇에도 레버리지 적용 (실시간 반영)
+        with _state_lock:
+            state = get_user_state(user_id)
+            if state.get("bn_client"):  # 바이낸스 클라이언트가 있는 경우만
+                try:
+                    # 선택된 모든 심볼에 레버리지 적용
+                    for symbol in (req.selected_symbols or ["BTCUSDT", "ETHUSDT", "SOLUSDT"]):
+                        state["bn_client"].futures_change_leverage(symbol=symbol, leverage=req.leverage)
+                except Exception as e:
+                    log.warning(f"레버리지 설정 실패 {symbol}: {e}")
+        
+        return {"message": "설정이 저장되었습니다", "status": "success"}
     except Exception as e:
-        log.error(f"Failed to get positions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        log.error(f"설정 저장 오류: {e}")
+        raise HTTPException(500, "설정 저장 실패")
+
+@app.post("/api-key/save")
+async def save_api_key(req: ApiKeyRequest, user_id: str = Depends(get_current_user)):
+    enc_api = encrypt(req.api_key)
+    enc_sec = encrypt(req.secret_key)
+    supabase_client.table("api_keys").upsert(
+        {"user_id": user_id, "api_key_encrypted": enc_api, "secret_key_encrypted": enc_sec},
+        on_conflict="user_id",
+    ).execute()
+    return {"message": "API 키가 저장되었습니다"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
