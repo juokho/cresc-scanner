@@ -1,20 +1,13 @@
 services:
   - type: web
     name: quanter
-    runtime: python
+    runtime: node
     plan: free
     buildCommand: |
       npm install
       npm run build
-      pip install -r requirements.txt
-    startCommand: cd backend && uvicorn app:app --host 0.0.0.0 --port $PORT
-    staticPublishPath: ./frontend/dist
+    startCommand: npm run preview
+    staticPublishPath: ./dist
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
       - key: NODE_VERSION
         value: 18.17.0
-      - key: DISCORD_WEBHOOK_URL
-        sync: false
-      - key: PREMIUM_API_KEYS
-        sync: false
