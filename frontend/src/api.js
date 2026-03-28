@@ -295,6 +295,35 @@ export async function getApiKey() {
   }
 }
 
+export async function setApiKey(apiKey) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) throw new Error("로그인이 필요합니다")
+    
+    // 기존 API Key 비활성화
+    await supabase
+      .from('api_keys')
+      .update({ is_active: false })
+      .eq('user_id', session.user.id)
+    
+    // 새 API Key 저장
+    const { error } = await supabase
+      .from('api_keys')
+      .insert({
+        user_id: session.user.id,
+        api_key: apiKey,
+        tier: "premium",
+        is_active: true
+      })
+    
+    if (error) throw error
+    return { success: true }
+  } catch (error) {
+    console.error("API Key 저장 오류:", error)
+    throw error
+  }
+}
+
 export async function getTier() {
   try {
     const { data: { session } } = await supabase.auth.getSession()

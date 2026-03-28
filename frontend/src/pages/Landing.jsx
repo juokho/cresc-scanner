@@ -56,7 +56,23 @@ function ServiceCard({
       )}
       
       <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>{icon}</div>
+        <div style={{ fontSize: 48, marginBottom: 16, display: "flex", justifyContent: "center" }}>
+          {icon === "chart" ? (
+            <span style={{ 
+              fontSize: 48, 
+              color: BLUE_LT,
+              fontWeight: "bold"
+            }}>$</span>
+          ) : icon === "bot" ? (
+            <span style={{ 
+              fontSize: 48, 
+              color: BLUE_LT,
+              fontWeight: "bold"
+            }}>₿</span>
+          ) : (
+            <span style={{ fontSize: 48 }}>{icon}</span>
+          )}
+        </div>
         <div style={{ 
           fontFamily: "'Orbitron', sans-serif", 
           fontSize: 20, 
@@ -156,7 +172,7 @@ export default function Landing() {
   const services = [
     {
       id: "scanner",
-      icon: "📈",
+      icon: "chart",
       title: "미국 주식",
       subtitle: "ETF 스캐너",
       description: "실시간 시그널로 미국 3X ETF 투자 기회를 포착하세요. 양방향 시그널로 상승/하락장 모두 수익 창출",
@@ -172,7 +188,7 @@ export default function Landing() {
     },
     {
       id: "trading",
-      icon: "₿",
+      icon: "bot",
       title: "코인 선물",
       subtitle: "자동매매 봇",
       description: "AI 기반 바이낸스 선물 자동매매. 24시간 시장 분석으로 최적의 진입/청산 타이밍 실행",
