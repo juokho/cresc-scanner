@@ -67,14 +67,12 @@ export default function Account() {
   // Binance API 키 등록 여부 확인
   const checkApiKey = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
-      const { data } = await supabase
-        .from("api_keys")
-        .select("api_key_encrypted")
-        .eq("user_id", session.user.id)
-        .maybeSingle()
-      setHasApiKey(!!data?.api_key_encrypted)
+      const headers = await getTradingHeaders()
+      const res = await fetch(`${TRADING_API_URL}/status`, { headers })
+      if (res.ok) {
+        const status = await res.json()
+        setHasApiKey(status.has_api_key || false)
+      }
     } catch {}
   }
 

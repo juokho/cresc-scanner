@@ -96,7 +96,7 @@ function Step1({ onNext }) {
       </div>
       <div style={{ textAlign: "center", marginBottom: 12 }}>
         <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 20, fontWeight: 900, color: TEXT_PRI, letterSpacing: "1px", marginBottom: 4 }}>
-          <span style={{ color: BLUE_LT }}>QUANTER</span>.Q
+          <span style={{ color: BLUE_LT }}>Cresc</span>.Q
         </div>
         <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "3px" }}>QUANTITATIVE TRADING</div>
       </div>

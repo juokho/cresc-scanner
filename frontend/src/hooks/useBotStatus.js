@@ -39,13 +39,7 @@ export default function useBotStatus() {
       setBotRunning(status.bot_running || false)
       setSelectedSymbols(status.selected_symbols || ["BTCUSDT", "ETHUSDT", "SOLUSDT"])
       setServerMsg(status.bot_running ? "자동매매 실행 중" : "대기 중")
-
-      // 2. Binance API 키 등록 여부 확인
-      const { data: keyData } = await supabase
-        .from("api_keys")
-        .select("api_key_encrypted")
-        .single()
-      setHasApiKey(!!keyData?.api_key_encrypted)
+      setHasApiKey(status.has_api_key || false)
 
       // 3. 잔고
       const balRes = await fetch(`${TRADING_API_URL}/balance`, { headers })

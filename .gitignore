@@ -43,3 +43,7 @@ quanter.zip
 *.zip
 backend/__pycache__/
 backend/**/*.pyc
+-e 
+# Build output
+frontend/dist/
+dist/

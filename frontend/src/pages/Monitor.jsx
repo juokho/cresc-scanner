@@ -54,7 +54,7 @@ export default function Monitor() {
     <div style={{ background: BG, minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", color: TEXT_PRI, paddingBottom: 100 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderBottom:`0.5px solid ${BORDER}` }}>
         <div style={{ fontFamily:"'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>QUANTER</span>.MONITOR
+          <span style={{ color: BLUE_LT }}>CRESC</span>.MONITOR
         </div>
         <div style={{ fontSize: 10, color: TEXT_MUT }}>{lastUpdate && `업데이트: ${lastUpdate}`}</div>
       </div>

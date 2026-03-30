@@ -27,7 +27,7 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
-log = logging.getLogger("QUANTERQ")
+log = logging.getLogger("CRESCQ")
 
 # ============================================================
 # [2] Supabase 클라이언트
@@ -160,6 +160,11 @@ app.add_middleware(
 @app.get("/status")
 async def get_status(user_id: str = Depends(get_current_user)):
     st = get_user_state(user_id)
+    try:
+        res = supabase_client.table("api_keys").select("api_key_encrypted").eq("user_id", user_id).execute()
+        has_api_key = bool(res.data and res.data[0].get("api_key_encrypted"))
+    except Exception:
+        has_api_key = False
     return {
         "bot_running":      st["is_order_enabled"],
         "selected_symbols": st["selected_symbols"],
@@ -170,6 +175,7 @@ async def get_status(user_id: str = Depends(get_current_user)):
         "sl_mode":          st["sl_mode"],
         "indicators":       user_indicators.get(user_id, {}),
         "execution_logs":   user_exec_logs[user_id],
+        "has_api_key":      has_api_key,
     }
 
 @app.post("/bot/start")
