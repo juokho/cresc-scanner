@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { supabase } from "../supabase"
 import { NavBar } from "./Home"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
@@ -142,6 +142,8 @@ export default function Login() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState("")
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from || "/dashboard"
 
   // 로그인
   const handleLogin = async () => {
@@ -164,7 +166,7 @@ export default function Login() {
         await new Promise(resolve => setTimeout(resolve, 100))
         attempts++
       }
-      navigate("/dashboard")
+      navigate(from)
     }
     setLoading(false)
   }
@@ -185,7 +187,7 @@ export default function Login() {
       setError(error.message || "회원가입에 실패했어요")
       console.error("Signup error:", error)
     } else {
-      navigate("/dashboard")
+      navigate(from)
     }
     setLoading(false)
   }

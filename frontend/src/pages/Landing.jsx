@@ -204,10 +204,16 @@ export default function Landing() {
     }
   ]
 
-  const handleServiceSelect = (service) => {
+  const handleServiceSelect = async (service) => {
     setSelectedService(service.id)
+    const { supabase } = await import("../supabase")
+    const { data: { session } } = await supabase.auth.getSession()
     setTimeout(() => {
-      navigate(service.url)
+      if (session) {
+        navigate(service.url)
+      } else {
+        navigate("/login", { state: { from: service.url } })
+      }
     }, 300)
   }
 
