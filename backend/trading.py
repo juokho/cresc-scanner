@@ -20,7 +20,7 @@ from state import (
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-log = logging.getLogger("QUANTERQ")
+log = logging.getLogger("CRESCQ")
 
 # ============================================================
 # 유틸리티

@@ -37,7 +37,7 @@ def add_execution_log(
 ) -> None:
     import time
     import logging
-    log = logging.getLogger("QUANTERQ")
+    log = logging.getLogger("CRESCQ")
 
     entry = {
         "time":   time.strftime("%H:%M:%S"),
