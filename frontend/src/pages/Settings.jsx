@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { checkServerStatus, updateBotSettings } from "../api"
+import { checkServerStatus, updateBotSettings, saveApiKey } from "../api"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
 
 function SliderRow({ label, desc, value, min, max, color, unit, onChange }) {
@@ -48,6 +48,11 @@ export default function Settings() {
   const [loading,  setLoading]  = useState(false)
   const [saved,    setSaved]    = useState(false)
   const [balance,  setBalance]  = useState(0)
+  
+  // API 키 상태
+  const [apiKey,    setApiKey]    = useState("")
+  const [secretKey, setSecretKey] = useState("")
+  const [apiKeySaved, setApiKeySaved] = useState(false)
 
   // [버그수정] 기존: 서버 현재 설정값 로드 없음 → 항상 기본값으로 초기화됨
   //           수정: 진입 시 서버 현재 설정 불러오기
@@ -73,6 +78,7 @@ export default function Settings() {
     setLoading(true)
     setSaved(false)
     try {
+      // 봇 설정 저장
       await updateBotSettings({
         leverage,
         tradePct: size,
@@ -80,6 +86,13 @@ export default function Settings() {
         tpRoi: tp,
         slMode,
       })
+      
+      // API 키가 입력되어 있으면 저장
+      if (apiKey.trim() && secretKey.trim()) {
+        await saveApiKey(apiKey.trim(), secretKey.trim())
+        setApiKeySaved(true)
+      }
+      
       setSaved(true)
       setTimeout(() => navigate("/dashboard"), 800)
     } catch (e) {
@@ -190,6 +203,55 @@ export default function Settings() {
                 <div style={{ fontSize: 10, color: TEXT_MUT }}>{desc}</div>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div style={{ height: "0.5px", background: BORDER }}/>
+
+        {/* 바이낸스 API 키 입력 */}
+        <div>
+          <div style={{ fontSize: 12, color: TEXT_PRI, fontWeight: 500, marginBottom: 12 }}>
+            바이낸스 API 키
+            {apiKeySaved && <span style={{ color: GREEN, marginLeft: 8, fontSize: 10 }}>✓ 저장됨</span>}
+          </div>
+          
+          <input
+            type="password"
+            placeholder="API Key"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            style={{
+              width: "100%",
+              background: SURFACE,
+              border: `0.5px solid ${BORDER}`,
+              borderRadius: 8,
+              padding: "10px 12px",
+              fontSize: 12,
+              color: TEXT_PRI,
+              marginBottom: 8,
+              outline: "none",
+            }}
+          />
+          
+          <input
+            type="password"
+            placeholder="Secret Key"
+            value={secretKey}
+            onChange={e => setSecretKey(e.target.value)}
+            style={{
+              width: "100%",
+              background: SURFACE,
+              border: `0.5px solid ${BORDER}`,
+              borderRadius: 8,
+              padding: "10px 12px",
+              fontSize: 12,
+              color: TEXT_PRI,
+              outline: "none",
+            }}
+          />
+          
+          <div style={{ fontSize: 10, color: TEXT_MUT, marginTop: 6 }}>
+            * API 키는 암호화되어 안전하게 저장됩니다
           </div>
         </div>
 

@@ -230,6 +230,27 @@ export async function saveUserSettings(settings) {
   return await res.json()
 }
 
+// ============================================================
+// 바이낸스 API 키 저장 (Trading)
+// ============================================================
+export async function saveApiKey(apiKey, secretKey) {
+  const headers = await getHeaders()
+  const res = await fetch(`${TRADING_API_URL}/api-key/save`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      api_key: apiKey,
+      secret_key: secretKey,
+    }),
+  })
+  if (!res.ok) {
+    let detail = "API 키 저장 실패"
+    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
+    throw new Error(`[${res.status}] ${detail}`)
+  }
+  return await res.json()
+}
+
 export async function fetchUserSubscription() {
   try {
     const headers = await getHeaders()
