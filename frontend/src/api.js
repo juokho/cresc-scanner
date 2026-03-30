@@ -103,6 +103,19 @@ export const fetchBalance = async () => {
   }
 }
 
+export const fetchPositions = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`${TRADING_API_URL}/positions`, {
+      headers: { "Authorization": `Bearer ${session?.access_token || ""}` }
+    })
+    if (!res.ok) throw new Error("Positions fetch error")
+    return await res.json()
+  } catch (e) {
+    return { positions: [], error: e.message }
+  }
+}
+
 export const updateBotSettings = async (settings) => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -124,7 +137,7 @@ export const updateBotSettings = async (settings) => {
 export async function checkServerStatus() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch(`${TRADING_API_URL}/api/logs`, {
+    const res = await fetch(`${TRADING_API_URL}/balance`, {
       headers: { "Authorization": `Bearer ${session?.access_token || ""}` }
     })
     return res.ok
