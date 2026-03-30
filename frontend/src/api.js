@@ -1,8 +1,8 @@
 import { supabase } from "./supabase"
 
 // [설정] 환경변수 우선, 없으면 Render 기본 주소 사용
-const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "https://cresc-scanner-api.onrender.com"
-const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "https://cresc-trading-api.onrender.com"
+const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "https://quanter-scanner-api.onrender.com"
+const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "https://quanter-trading-api.onrender.com"
 
 // ============================================================
 // [1] 인증 및 사용자 정보 (원본 로직 100% 복구)
@@ -123,7 +123,7 @@ export async function checkServerStatus() {
 // ============================================================
 // [4] API 키 관리 및 티어 (Pricing, Settings 대응)
 // ============================================================
-export async function saveApiKey(apiKey) {
+export async function saveApiKey(apiKey, secretKey) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error("로그인이 필요합니다")
@@ -135,6 +135,7 @@ export async function saveApiKey(apiKey) {
     const { error } = await supabase.from('api_keys').insert({
       user_id: session.user.id,
       api_key: apiKey,
+      secret_key: secretKey,
       tier: "premium",
       is_active: true
     })
