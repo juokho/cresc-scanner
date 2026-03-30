@@ -1,9 +1,9 @@
 import { supabase } from "./supabase"
 
 // Scanner API (port 8000)
-const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "http://localhost:8000"
+const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "https://cresc-scanner-api.onrender.com"
 // Trading API (port 8001)  
-const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "http://localhost:8001"
+const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "https://cresc-trading-api.onrender.com"
 
 // ============================================================
 // 인증 확인 (for Home.jsx compatibility)
