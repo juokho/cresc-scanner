@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react" 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
 import Home         from "./pages/Home"
 import Monitor      from "./pages/Monitor"
 import TradeHistory from "./pages/TradeHistory"
@@ -8,24 +7,32 @@ import Account      from "./pages/Account"
 import Login        from "./pages/Login"
 import Landing      from "./pages/Landing"
 import Trade        from "./pages/Trade"
+import Onboarding   from "./pages/Onboarding"
+import Settings     from "./pages/Settings"
 import ErrorBoundary from "./components/ErrorBoundary"
+import ProtectedRoute from "./pages/ProtectedRoute"
 
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/"            element={<Landing />} />
-          <Route path="/landing"      element={<Landing />} />
-          <Route path="/scan"         element={<Home />}/>
-          <Route path="/trade"        element={<Trade/>}/>
-          <Route path="/dashboard"   element={<Home />}/>
-          <Route path="/monitor"      element={<Monitor/>}/>
-          <Route path="/history"      element={<TradeHistory/>}/>
-          <Route path="/pricing"      element={<Pricing/>}/>
-          <Route path="/account"      element={<Account/>}/>
-          <Route path="/login"        element={<Login/>}/>
-          <Route path="/signup"       element={<Login/>}/>
+          {/* 퍼블릭 */}
+          <Route path="/"         element={<Landing />} />
+          <Route path="/landing"  element={<Landing />} />
+          <Route path="/login"    element={<Login />} />
+          <Route path="/signup"   element={<Login />} />
+          <Route path="/pricing"  element={<Pricing />} />
+
+          {/* 로그인 필요 */}
+          <Route path="/scan"       element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/dashboard"  element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/trade"      element={<ProtectedRoute><Trade /></ProtectedRoute>} />
+          <Route path="/monitor"    element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
+          <Route path="/history"    element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
+          <Route path="/account"    element={<ProtectedRoute><Account /></ProtectedRoute>} />
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+          <Route path="/settings"   element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

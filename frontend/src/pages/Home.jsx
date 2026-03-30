@@ -466,21 +466,21 @@ export default function Home() {
         borderBottom: `0.5px solid ${BORDER}`
       }}>
         {[
-          { label: "TOTAL", value: signals.length, color: TEXT_PRI },
-          { label: "ACTIVE", value: activeSignals.length, color: GREEN },
-          { label: "LONG", value: signals.filter(s => s.signal === "LONG").length, color: GREEN },
-          { label: "SHORT", value: signals.filter(s => s.signal === "SHORT").length, color: RED },
+          { label: "TOTAL",  value: signals.length,                                  color: TEXT_PRI },
+          { label: "ACTIVE", value: activeSignals.length,                             color: GREEN },
+          { label: "LONG",   value: signals.filter(s => s.signal === "LONG").length,  color: GREEN },
+          { label: "SHORT",  value: signals.filter(s => s.signal === "SHORT").length, color: RED },
         ].map(stat => (
           <div key={stat.label} style={{ 
             flex: 1, 
             background: SURFACE,
             border: `0.5px solid ${BORDER}`,
-            borderRadius: 8,
-            padding: "8px",
+            borderRadius: 10,
+            padding: "10px 6px",
             textAlign: "center"
           }}>
-            <div style={{ fontSize: 8, color: TEXT_MUT, marginBottom: 2, letterSpacing: "0.5px" }}>{stat.label}</div>
-            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700, color: stat.color }}>
+            <div style={{ fontSize: 8, color: TEXT_HINT, marginBottom: 4, letterSpacing: "0.8px" }}>{stat.label}</div>
+            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 20, fontWeight: 800, color: stat.color, lineHeight: 1 }}>
               {stat.value}
             </div>
           </div>
@@ -513,22 +513,22 @@ export default function Home() {
                 onClick={() => setShowTimeframeMenu(!showTimeframeMenu)}
                 style={{
                   width: "100%",
-                  padding: "8px 12px",
-                  background: activeTab === "signals" ? SURFACE : "transparent",
-                  border: `0.5px solid ${activeTab === "signals" ? BORDER : "transparent"}`,
-                  borderRadius: 6,
-                  color: activeTab === "signals" ? TEXT_PRI : TEXT_MUT,
+                  padding: "9px 12px",
+                  background: activeTab === "signals" ? `${BLUE}20` : "transparent",
+                  border: `0.5px solid ${activeTab === "signals" ? BLUE : "transparent"}`,
+                  borderRadius: 8,
+                  color: activeTab === "signals" ? BLUE_LT : TEXT_MUT,
                   fontSize: 11,
-                  fontWeight: 500,
+                  fontWeight: activeTab === "signals" ? 700 : 500,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 6
+                  gap: 5
                 }}
               >
-                시그널 ({timeframe === "5m" ? "5m" : timeframe === "30m" ? "30m" : timeframe === "1h" ? "1h" : "1D"})
-                <span style={{ fontSize: 10 }}>▼</span>
+                📡 시그널 ({timeframe === "5m" ? "5m" : timeframe === "30m" ? "30m" : timeframe === "1h" ? "1h" : "1D"})
+                <span style={{ fontSize: 9, opacity: 0.7 }}>▼</span>
               </button>
               
               {/* 시간봉 선택 메뉴 */}
@@ -590,18 +590,19 @@ export default function Home() {
               disabled={!isPremium}
               style={{
                 flex: 1,
-                padding: "8px 12px",
-                background: activeTab === "positions" ? SURFACE : "transparent",
-                border: `0.5px solid ${activeTab === "positions" ? BORDER : "transparent"}`,
-                borderRadius: 6,
-                color: !isPremium ? TEXT_HINT : activeTab === "positions" ? TEXT_PRI : TEXT_MUT,
+                padding: "9px 12px",
+                background: activeTab === "positions" ? `${BLUE}20` : "transparent",
+                border: `0.5px solid ${activeTab === "positions" ? BLUE : "transparent"}`,
+                borderRadius: 8,
+                color: !isPremium ? TEXT_HINT : activeTab === "positions" ? BLUE_LT : TEXT_MUT,
                 fontSize: 11,
-                fontWeight: 500,
-                cursor: !isPremium ? "not-allowed" : "pointer"
+                fontWeight: activeTab === "positions" ? 700 : 500,
+                cursor: !isPremium ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4
               }}
             >
-              포지션
-              {!isPremium && <span style={{ fontSize: 8, marginLeft: 4 }}>🔒</span>}
+              📊 포지션
+              {!isPremium && <span style={{ fontSize: 8 }}>🔒</span>}
             </button>
             
             {/* 내역 탭 */}
@@ -610,18 +611,19 @@ export default function Home() {
               disabled={!isPremium}
               style={{
                 flex: 1,
-                padding: "8px 12px",
-                background: activeTab === "history" ? SURFACE : "transparent",
-                border: `0.5px solid ${activeTab === "history" ? BORDER : "transparent"}`,
-                borderRadius: 6,
-                color: !isPremium ? TEXT_HINT : activeTab === "history" ? TEXT_PRI : TEXT_MUT,
+                padding: "9px 12px",
+                background: activeTab === "history" ? `${BLUE}20` : "transparent",
+                border: `0.5px solid ${activeTab === "history" ? BLUE : "transparent"}`,
+                borderRadius: 8,
+                color: !isPremium ? TEXT_HINT : activeTab === "history" ? BLUE_LT : TEXT_MUT,
                 fontSize: 11,
-                fontWeight: 500,
-                cursor: !isPremium ? "not-allowed" : "pointer"
+                fontWeight: activeTab === "history" ? 700 : 500,
+                cursor: !isPremium ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4
               }}
             >
-              내역
-              {!isPremium && <span style={{ fontSize: 8, marginLeft: 4 }}>🔒</span>}
+              📋 내역
+              {!isPremium && <span style={{ fontSize: 8 }}>🔒</span>}
             </button>
           </>
         )}
@@ -641,28 +643,35 @@ export default function Home() {
         
         {!loading && activeTab === "signals" && (
           <>
-            {/* 필터 */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+            {/* 필터 - 가로 스크롤 */}
+            <div style={{
+              display: "flex", gap: 6, marginBottom: 16,
+              overflowX: "auto", paddingBottom: 4,
+              scrollbarWidth: "none", msOverflowStyle: "none"
+            }}>
               {[
-                { id: "all", label: "전체" },
-                { id: "active", label: "ACTIVE" },
-                { id: "long", label: "LONG" },
-                { id: "short", label: "SHORT" },
-                { id: "trend", label: "TREND" },
-                { id: "range", label: "RANGE" },
+                { id: "all",   label: "전체" },
+                { id: "active", label: "🔥 ACTIVE" },
+                { id: "long",  label: "▲ LONG" },
+                { id: "short", label: "▼ SHORT" },
+                { id: "trend", label: "📈 TREND" },
+                { id: "range", label: "↔ RANGE" },
               ].map(f => (
                 <button
                   key={f.id}
                   onClick={() => setFilter(f.id)}
                   style={{
-                    padding: "6px 12px",
+                    flexShrink: 0,
+                    padding: "7px 14px",
                     background: filter === f.id ? BLUE : SURFACE,
                     border: `0.5px solid ${filter === f.id ? BLUE : BORDER}`,
-                    borderRadius: 6,
+                    borderRadius: 20,
                     color: filter === f.id ? "#fff" : TEXT_MUT,
                     fontSize: 10,
-                    fontWeight: 500,
-                    cursor: "pointer"
+                    fontWeight: filter === f.id ? 700 : 400,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    transition: "all 0.15s"
                   }}
                 >
                   {f.label}
@@ -926,25 +935,24 @@ export default function Home() {
 
 export function NavBar({ navigate, active }) {
   const items = [
-    { id: "home", label: "홈", path: "/dashboard" },
-    { id: "trade", label: "자동매매", path: "/trade" },
-    { id: "pricing", label: "플랜", path: "/pricing" },
-    { id: "account", label: "내 계정", path: "/account" },
+    { id: "home",    label: "홈",    path: "/dashboard", icon: "⬡" },
+    { id: "trade",   label: "매매",   path: "/trade",     icon: "⚡" },
+    { id: "pricing", label: "플랜",   path: "/pricing",   icon: "💎" },
+    { id: "account", label: "계정",   path: "/account",   icon: "👤" },
   ]
   
   return (
     <div style={{ 
       position: "fixed",
-      bottom: 0,
-      left: 0,
-      right: 0,
+      bottom: 0, left: 0, right: 0,
       display: "flex", 
       justifyContent: "space-around", 
-      padding: "12px 20px 24px", 
+      padding: "10px 8px 22px", 
       borderTop: `0.5px solid ${BORDER}`, 
       background: BG,
       maxWidth: 430,
-      margin: "0 auto"
+      margin: "0 auto",
+      zIndex: 100,
     }}>
       {items.map(item => {
         const isActive = active === item.id
@@ -953,20 +961,20 @@ export function NavBar({ navigate, active }) {
             key={item.id} 
             onClick={() => navigate(item.path)} 
             style={{ 
-              display: "flex", 
-              flexDirection: "column", 
-              alignItems: "center", 
-              gap: 4,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               cursor: "pointer",
-              padding: "8px 16px",
-              borderRadius: 8,
-              background: isActive ? `${BLUE}15` : "transparent",
+              padding: "6px 18px",
+              borderRadius: 10,
+              background: isActive ? `${BLUE}20` : "transparent",
+              transition: "all 0.15s",
             }}
           >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</span>
             <span style={{ 
-              fontSize: 10, 
+              fontSize: 9, 
               color: isActive ? BLUE_LT : TEXT_MUT, 
-              fontWeight: isActive ? 600 : 400 
+              fontWeight: isActive ? 700 : 400,
+              letterSpacing: "0.3px"
             }}>{item.label}</span>
           </div>
         )
