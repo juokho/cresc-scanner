@@ -13,154 +13,72 @@ function LogoIcon({ size = 64 }) {
   )
 }
 
-function ServiceCard({ 
-  icon, 
-  title, 
-  subtitle, 
-  description, 
-  features, 
-  buttonText, 
-  onClick,
-  isActive 
-}) {
+function ServiceCard({ icon, title, subtitle, description, features, buttonText, onClick, isActive }) {
   return (
-    <div 
+    <div
       onClick={onClick}
       style={{
         flex: 1,
-        background: isActive ? `${BLUE}15` : SURFACE,
-        border: `0.5px solid ${isActive ? BLUE : BORDER}`,
-        borderRadius: 16,
-        padding: "24px",
+        background: isActive ? `${BLUE}18` : SURFACE,
+        border: `1px solid ${isActive ? BLUE : BORDER}`,
+        borderRadius: 20,
+        padding: "28px 24px",
         cursor: "pointer",
         transition: "all 0.3s ease",
         transform: isActive ? "scale(1.02)" : "scale(1)",
-        position: "relative"
+        position: "relative",
+        boxShadow: isActive ? `0 0 24px ${BLUE}30` : "none"
       }}
     >
       {isActive && (
         <div style={{
-          position: "absolute",
-          top: -10,
-          right: 20,
-          background: BLUE,
-          color: "#fff",
-          fontSize: 10,
-          padding: "4px 12px",
-          borderRadius: 20,
-          letterSpacing: "1px",
+          position: "absolute", top: -11, right: 20,
+          background: BLUE, color: "#fff",
+          fontSize: 9, padding: "4px 12px",
+          borderRadius: 20, letterSpacing: "1.5px",
           fontFamily: "'Orbitron', sans-serif"
-        }}>
-          SELECTED
-        </div>
+        }}>SELECTED</div>
       )}
-      
+
       <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 48, marginBottom: 16, display: "flex", justifyContent: "center" }}>
-          {icon === "chart" ? (
-            <span style={{ 
-              fontSize: 48, 
-              color: BLUE_LT,
-              fontWeight: "bold"
-            }}>$</span>
-          ) : icon === "bot" ? (
-            <span style={{ 
-              fontSize: 48, 
-              color: BLUE_LT,
-              fontWeight: "bold"
-            }}>₿</span>
-          ) : (
-            <span style={{ fontSize: 48 }}>{icon}</span>
-          )}
+        <div style={{ fontSize: 44, marginBottom: 14 }}>
+          {icon === "chart" ? "📊" : "⚡"}
         </div>
-        <div style={{ 
-          fontFamily: "'Orbitron', sans-serif", 
-          fontSize: 20, 
-          fontWeight: 700, 
-          color: TEXT_PRI,
-          marginBottom: 4 
-        }}>
+        <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 700, color: TEXT_PRI, marginBottom: 4 }}>
           {title}
         </div>
-        <div style={{ fontSize: 14, color: BLUE_LT, fontWeight: 600 }}>
+        <div style={{ fontSize: 12, color: BLUE_LT, fontWeight: 600, letterSpacing: "0.5px" }}>
           {subtitle}
         </div>
       </div>
-      
-      <div style={{ 
-        fontSize: 12, 
-        color: TEXT_MUT, 
-        lineHeight: 1.6, 
-        textAlign: "center",
-        marginBottom: 20 
-      }}>
+
+      <div style={{ fontSize: 12, color: TEXT_MUT, lineHeight: 1.7, textAlign: "center", marginBottom: 20 }}>
         {description}
       </div>
-      
-      <div style={{ marginBottom: 20 }}>
-        {features.map((feature, index) => (
-          <div key={index} style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: 8, 
-            marginBottom: 8 
-          }}>
-            <div style={{ 
-              width: 4, 
-              height: 4, 
-              borderRadius: "50%", 
-              background: BLUE_LT 
-            }} />
+
+      <div style={{ marginBottom: 24 }}>
+        {features.map((feature, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: BLUE_LT, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: TEXT_MUT }}>{feature}</span>
           </div>
         ))}
       </div>
-      
+
       <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onClick()
-        }}
+        onClick={(e) => { e.stopPropagation(); onClick() }}
         style={{
-          width: "100%",
-          padding: "12px",
+          width: "100%", padding: "13px",
           background: isActive ? BLUE : "transparent",
-          border: `0.5px solid ${isActive ? BLUE : BORDER}`,
-          borderRadius: 10,
-          color: isActive ? "#fff" : TEXT_PRI,
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "1px",
-          cursor: "pointer",
-          transition: "all 0.2s",
+          border: `1px solid ${isActive ? BLUE : BORDER}`,
+          borderRadius: 10, color: isActive ? "#fff" : TEXT_PRI,
+          fontSize: 11, fontWeight: 700, letterSpacing: "1px",
+          cursor: "pointer", transition: "all 0.2s",
           fontFamily: "'Orbitron', sans-serif"
         }}
       >
         {buttonText}
       </button>
-    </div>
-  )
-}
-
-function StatCard({ value, label }) {
-  return (
-    <div style={{
-      flex: 1,
-      background: SURFACE,
-      border: `0.5px solid ${BORDER}`,
-      borderRadius: 12,
-      padding: "16px 12px",
-      textAlign: "center"
-    }}>
-      <div style={{ 
-        fontFamily: "'Orbitron', sans-serif", 
-        fontSize: 18, 
-        fontWeight: 700, 
-        color: BLUE_LT 
-      }}>
-        {value}
-      </div>
-      <div style={{ fontSize: 10, color: TEXT_MUT, marginTop: 2 }}>{label}</div>
     </div>
   )
 }
@@ -175,32 +93,32 @@ export default function Landing() {
       icon: "chart",
       title: "미국 주식",
       subtitle: "ETF 스캐너",
-      description: "실시간 시그널로 미국 3X ETF 투자 기회를 포착하세요. 양방향 시그널로 상승/하락장 모두 수익 창출",
+      description: "실시간 시그널로 미국 3X ETF 투자 기회를 포착하세요. 상승장도 하락장도 양방향 수익 가능",
       features: [
-        "60+ 개 레버리지 ETF 실시간 모니터링",
-        "LONG/SHORT/WAIT 양방향 시그널",
-        "CI + Z-Score 기반 정확도",
+        "60+ 레버리지 ETF 실시간 모니터링",
+        "LONG / SHORT 양방향 시그널",
+        "CI + Z-Score 기반 고정밀 분석",
         "디스코드 실시간 알림",
-        "무료 시그널 조회"
+        "무료로 시작 가능"
       ],
       buttonText: "스캐너 시작하기",
-      url: "/scan" // Scanner 경로
+      url: "/scan"
     },
     {
       id: "trading",
       icon: "bot",
       title: "코인 선물",
       subtitle: "자동매매 봇",
-      description: "AI 기반 바이낸스 선물 자동매매. 24시간 시장 분석으로 최적의 진입/청산 타이밍 실행",
+      description: "바이낸스 선물 자동매매. 24시간 시장을 분석하고 진입·청산을 자동으로 실행합니다",
       features: [
         "바이낸스 선물 시장 연동",
-        "AI 기반 시장 분석",
-        "자동 손절/익절 실행",
-        "레버리지 1x-125x 설정",
-        "실시간 포지션 관리"
+        "자동 손절 / 익절 실행",
+        "레버리지 1x – 125x 설정",
+        "실시간 포지션 모니터링",
+        "다중 심볼 동시 운용"
       ],
       buttonText: "자동매매 시작하기",
-      url: "/trade" // 자동매매 경로
+      url: "/trade"
     }
   ]
 
@@ -218,74 +136,109 @@ export default function Landing() {
   }
 
   return (
-    <div style={{ 
-      background: BG, 
-      minHeight: "100vh", 
-      fontFamily: "'DM Sans', sans-serif", 
-      color: TEXT_PRI
-    }}>
+    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI }}>
+
       {/* 헤더 */}
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "center",
-        padding: "20px 18px",
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "18px 24px",
         borderBottom: `0.5px solid ${BORDER}`,
-        position: "sticky",
-        top: 0,
-        background: BG,
-        zIndex: 10
+        position: "sticky", top: 0, background: BG, zIndex: 10
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <LogoIcon size={32} />
-          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 700 }}>
-            <span style={{ color: BLUE_LT }}>QUANTER</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <LogoIcon size={28} />
+          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700, color: BLUE_LT }}>
+            QUANTER
           </span>
         </div>
+        <button
+          onClick={() => navigate("/login")}
+          style={{
+            background: "transparent", border: `0.5px solid ${BORDER}`,
+            borderRadius: 8, padding: "7px 16px",
+            color: TEXT_MUT, fontSize: 11, cursor: "pointer"
+          }}
+        >
+          로그인
+        </button>
       </div>
 
-      {/* 메인 콘텐츠 */}
-      <div style={{ padding: "40px 24px", maxWidth: 1200, margin: "0 auto" }}>
-        {/* 히어로 섹션 */}
-        <div style={{ textAlign: "center", marginBottom: 60 }}>
-          <div style={{ fontSize: 32, fontWeight: 700, marginBottom: 16 }}>
-            스마트 투자의 새로운 기준
+      <div style={{ padding: "48px 24px 80px", maxWidth: 480, margin: "0 auto" }}>
+
+        {/* 히어로 */}
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+
+          {/* 태그라인 */}
+          <div style={{
+            display: "inline-block",
+            background: `${BLUE}18`, border: `0.5px solid ${BLUE}50`,
+            borderRadius: 20, padding: "5px 14px",
+            fontSize: 10, color: BLUE_LT, letterSpacing: "1.5px",
+            fontWeight: 600, marginBottom: 24
+          }}>
+            AI-POWERED INVESTMENT
           </div>
-          <div style={{ fontSize: 16, color: TEXT_MUT, lineHeight: 1.6, marginBottom: 32 }}>
-            QUANTER는 데이터 기반의 투자 솔루션을 제공합니다<br/>
-            미국 주식부터 코인 선물까지, AI 기반 분석으로 투자 수익률을 극대화하세요
+
+          <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.35, marginBottom: 20 }}>
+            시간 쏟지 마세요<br/>
+            <span style={{ color: BLUE_LT }}>투자는 AI에게</span>
           </div>
-          
-          {/* 통계 */}
-          <div style={{ display: "flex", gap: 12, marginBottom: 40 }}>
-            <StatCard value="10,000+" label="사용자" />
-            <StatCard value="99.9%" label="가동률" />
-            <StatCard value="24/7" label="실시간" />
+
+          <div style={{ fontSize: 14, color: TEXT_MUT, lineHeight: 1.9, marginBottom: 32 }}>
+            본업에 집중하세요. 가족과 함께하세요.<br/>
+            시장 분석과 매매는 QUANTER가 대신합니다.<br/>
+            <span style={{ color: TEXT_PRI, fontWeight: 500 }}>일상으로의 복귀, 그게 진짜 수익입니다.</span>
           </div>
+
+          {/* 한 줄 통계 */}
+          <div style={{ display: "flex", gap: 0, borderRadius: 14, overflow: "hidden", border: `0.5px solid ${BORDER}` }}>
+            {[
+              { value: "24/7", label: "무중단 운용" },
+              { value: "60+", label: "ETF 모니터링" },
+              { value: "자동", label: "진입·청산" },
+            ].map((s, i) => (
+              <div key={i} style={{
+                flex: 1, padding: "16px 8px", textAlign: "center",
+                background: SURFACE,
+                borderRight: i < 2 ? `0.5px solid ${BORDER}` : "none"
+              }}>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700, color: BLUE_LT }}>{s.value}</div>
+                <div style={{ fontSize: 9, color: TEXT_HINT, marginTop: 3, letterSpacing: "0.3px" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 일상 복귀 포인트 3가지 */}
+        <div style={{ marginBottom: 48 }}>
+          <div style={{ fontSize: 11, color: TEXT_HINT, letterSpacing: "1.5px", fontWeight: 600, marginBottom: 20, textAlign: "center" }}>
+            QUANTER를 쓰는 이유
+          </div>
+          {[
+            { icon: "💼", title: "본업에 집중", desc: "시장을 볼 시간에 더 중요한 일을 하세요. 매매 타이밍은 AI가 잡습니다." },
+            { icon: "👨‍👩‍👧", title: "가족과 함께", desc: "차트 대신 가족을 보세요. 포지션 관리는 봇이 24시간 대신합니다." },
+            { icon: "😌", title: "감정 없는 매매", desc: "공포와 탐욕 없이, 데이터와 로직으로만 움직이는 투자를 경험하세요." },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: "flex", gap: 16, alignItems: "flex-start",
+              padding: "18px 0",
+              borderBottom: i < 2 ? `0.5px solid ${BORDER}` : "none"
+            }}>
+              <div style={{ fontSize: 28, flexShrink: 0, width: 40, textAlign: "center" }}>{item.icon}</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{item.title}</div>
+                <div style={{ fontSize: 12, color: TEXT_MUT, lineHeight: 1.7 }}>{item.desc}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* 서비스 선택 */}
-        <div style={{ marginBottom: 60 }}>
-          <div style={{ 
-            textAlign: "center", 
-            fontSize: 20, 
-            fontWeight: 700, 
-            marginBottom: 12,
-            letterSpacing: "1px"
-          }}>
-            투자 자산 선택
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: TEXT_HINT, letterSpacing: "1.5px", fontWeight: 600, marginBottom: 20, textAlign: "center" }}>
+            서비스 선택
           </div>
-          <div style={{ 
-            textAlign: "center", 
-            fontSize: 13, 
-            color: TEXT_MUT, 
-            marginBottom: 32,
-            lineHeight: 1.6
-          }}>
-            원하는 투자 자산을 선택하고 전문화된 서비스를 이용하세요
-          </div>
-          
-          <div style={{ display: "flex", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {services.map(service => (
               <ServiceCard
                 key={service.id}
@@ -297,44 +250,8 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* 특징 섹션 */}
-        <div style={{ 
-          background: SURFACE, 
-          border: `0.5px solid ${BORDER}`, 
-          borderRadius: 16, 
-          padding: "32px 24px",
-          textAlign: "center"
-        }}>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
-            왜 QUANTER인가요?
-          </div>
-          <div style={{ display: "flex", gap: 20, marginBottom: 24 }}>
-            {[
-              { icon: "🤖", title: "AI 기반 분석", desc: "머신러닝으로 시장 패턴 분석" },
-              { icon: "⚡", title: "실시간 실행", desc: "0.1초 내 신속한 거래 실행" },
-              { icon: "🛡️", title: "리스크 관리", desc: "철저한 손절/익절 전략" }
-            ].map((feature, index) => (
-              <div key={index} style={{ flex: 1 }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>{feature.icon}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-                  {feature.title}
-                </div>
-                <div style={{ fontSize: 11, color: TEXT_MUT, lineHeight: 1.5 }}>
-                  {feature.desc}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* 푸터 */}
-        <div style={{ 
-          textAlign: "center", 
-          marginTop: 60, 
-          fontSize: 11, 
-          color: TEXT_HINT, 
-          lineHeight: 1.6 
-        }}>
+        <div style={{ textAlign: "center", marginTop: 48, fontSize: 10, color: TEXT_HINT, lineHeight: 1.8 }}>
           모든 투자 결정과 손실은 사용자 본인의 책임입니다<br/>
           QUANTER는 투자 참고용 정보만 제공합니다
         </div>
