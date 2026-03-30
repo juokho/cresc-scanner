@@ -46,9 +46,9 @@ export async function checkAuth() {
 // ============================================================
 // [2] 스캐너 API (cresc-scanner-api)
 // ============================================================
-export const fetchSignals = async () => {
+export async function fetchSignals(timeframe = "5m") {
   try {
-    const res = await fetch(`${SCANNER_API_URL}/api/signals`)
+    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${timeframe}`)
     if (!res.ok) throw new Error("Scanner API response was not ok")
     const data = await res.json()
     return { signals: data.signals || [], error: false }
@@ -61,7 +61,7 @@ export const fetchSignals = async () => {
 export async function triggerScan(timeframe = "5m") {
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch(`${SCANNER_API_URL}/api/scan/${timeframe}`, {
+    const res = await fetch(`${SCANNER_API_URL}/api/scan?tf=${timeframe}`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${session?.access_token || ""}`,
