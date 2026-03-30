@@ -30,7 +30,7 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
-log = logging.getLogger("CRESCQ")
+log = logging.getLogger("QUANTERQ")
 
 # ============================================================
 # [2] Supabase 클라이언트

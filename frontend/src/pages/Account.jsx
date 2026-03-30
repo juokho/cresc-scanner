@@ -45,7 +45,7 @@ export default function Account() {
         borderBottom: `0.5px solid ${BORDER}`
       }}>
         <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>CRESC</span>.ACCOUNT
+          <span style={{ color: BLUE_LT }}>QUANTER</span>.ACCOUNT
         </span>
       </div>
 

@@ -1,21 +1,28 @@
 import { supabase } from "./supabase"
 
-// Scanner API (port 8000)
+// 1. Render 대시보드 실제 서비스명과 일치 (캡처화면 기준)
 const SCANNER_API_URL = import.meta.env.VITE_SCANNER_API_URL || "https://cresc-scanner-api.onrender.com"
-// Trading API (port 8001)  
 const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "https://cresc-trading-api.onrender.com"
 
 // ============================================================
-// 인증 확인 (for Home.jsx compatibility)
+// [공통] 인증 헤더 생성 (반복 코드 통합)
+// ============================================================
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${session?.access_token || ""}`
+  }
+}
+
+// ============================================================
+// [1] 인증 및 사용자 정보 (Home.jsx, Account.jsx 연동용)
 // ============================================================
 export async function checkAuth() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) {
-      return { is_premium: false, tier: "free", user: null }
-    }
+    if (!session?.user) return { is_premium: false, tier: "free", user: null }
     
-    // api_keys 테이블에서 tier와 api_key 조회
     const { data: apiKeyData, error } = await supabase
       .from('api_keys')
       .select('api_key,tier')
@@ -30,304 +37,103 @@ export async function checkAuth() {
     return {
       is_premium: apiKeyData.tier === "premium",
       tier: apiKeyData.tier || "free",
-      api_key: apiKeyData.api_key || "",
-      user: session.user
+      user: session.user,
+      api_key: apiKeyData.api_key
     }
-  } catch (err) {
+  } catch (e) {
     return { is_premium: false, tier: "free", user: null }
   }
 }
 
-async function getHeaders() {
+// ============================================================
+// [2] 스캐너 API (cresc-scanner-api 연동)
+// ============================================================
+
+export const fetchSignals = async () => {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token || ""
-    
-    if (!token) {
-      throw new Error("로그인이 필요합니다")
-    }
-    
-    return {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    }
-  } catch (error) {
-    console.error("인증 토큰 가져오기 실패:", error)
-    throw new Error("인증 오류가 발생했습니다. 다시 로그인해주세요.")
-  }
-}
-
-// ============================================================
-// 서버 상태 (Scanner)
-// ============================================================
-export async function checkServerStatus() {
-  const headers = await getHeaders()
-  const res = await fetch(`${SCANNER_API_URL}/status`, { headers })
-  if (!res.ok) throw new Error(`서버 오류: ${res.status}`)
-  return await res.json()
-}
-
-// ============================================================
-// 지표 조회 (Scanner)
-// ============================================================
-export async function fetchIndicators() {
-  try {
-    const headers = await getHeaders()
-    const res = await fetch(`${SCANNER_API_URL}/indicators`, { headers })
-    if (!res.ok) return {}
-    const json = await res.json()
-    return json.indicators || {}
-  } catch {
-    return {}
-  }
-}
-
-// ============================================================
-// 시그널 로그 조회 (Scanner)
-// ============================================================
-export async function fetchSignals() {
-  try {
-    const headers = await getHeaders()
-    const res = await fetch(`${SCANNER_API_URL}/signals`, { headers })
-    if (!res.ok) return []
-    const json = await res.json()
-    return json.signals || []
-  } catch {
-    return []
-  }
-}
-
-// ============================================================
-// 봇 설정 업데이트 (Trading)
-// ============================================================
-export async function updateBotSettings(settings) {
-  const headers = await getHeaders()
-  const res = await fetch(`${TRADING_API_URL}/bot/settings`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      leverage:         settings.leverage,
-      trade_pct:        settings.tradePct / 100,
-      sl_atr_mult:      settings.slAtrMult ?? 1.5,
-      tp_atr_mult:      settings.tpAtrMult ?? 3.5,
-      sl_mode:          settings.slMode || "atr",
-      selected_symbols: settings.selected_symbols || ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
-    }),
-  })
-  if (!res.ok) {
-    let detail = "설정 업데이트 실패"
-    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
-    throw new Error(`[${res.status}] ${detail}`)
-  }
-  return await res.json()
-}
-
-// ============================================================
-// 봇 시작 (Trading)
-// ============================================================
-export async function startBot({ leverage, trade_pct, sl_atr_mult, tp_atr_mult, sl_mode }) {
-  const headers = await getHeaders()
-  const res = await fetch(`${TRADING_API_URL}/bot/start`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      leverage:    leverage    ?? 50,
-      trade_pct:   trade_pct  ?? 0.05,
-      sl_atr_mult: sl_atr_mult ?? 1.5,
-      tp_atr_mult: tp_atr_mult ?? 3.5,
-      sl_mode:     sl_mode    ?? "atr",
-    }),
-  })
-  if (!res.ok) {
-    let detail = "봇 시작 실패"
-    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
-    throw new Error(`[${res.status}] ${detail}`)
-  }
-  return await res.json()
-}
-
-// ============================================================
-// 봇 정지 (Trading)
-// ============================================================
-export async function stopBot() {
-  const headers = await getHeaders()
-  const res = await fetch(`${TRADING_API_URL}/bot/stop`, {
-    method: "POST",
-    headers,
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || "봇 정지 실패")
-  }
-  return await res.json()
-}
-
-// ============================================================
-// 잔고 조회 (Trading)
-// ============================================================
-export async function fetchBalance() {
-  try {
-    const headers = await getHeaders()
-    const res = await fetch(`${TRADING_API_URL}/balance`, { headers })
-    if (!res.ok) return null
+    const res = await fetch(`${SCANNER_API_URL}/api/signals`)
+    if (!res.ok) throw new Error("Scanner API 연결 실패")
     return await res.json()
-  } catch {
-    return null
+  } catch (e) {
+    console.error("fetchSignals Error:", e)
+    return { signals: [], error: true }
   }
 }
 
-// ============================================================
-// 포지션 조회 (Trading)
-// ============================================================
-export async function fetchPositions() {
+export async function triggerScan(timeframe = "5m") {
   try {
-    const headers = await getHeaders()
-    const res = await fetch(`${TRADING_API_URL}/positions`, { headers })
-    if (!res.ok) return []
-    const json = await res.json()
-    return json.positions || []
-  } catch {
-    return []
-  }
-}
-
-// ============================================================
-// 사용자 설정 조회 (Trading)
-// ============================================================
-export async function fetchUserSettings() {
-  try {
-    const headers = await getHeaders()
-    const res = await fetch(`${TRADING_API_URL}/user/settings`, { headers })
-    if (!res.ok) return null
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${SCANNER_API_URL}/api/scan/${timeframe}`, {
+      method: "POST",
+      headers
+    })
     return await res.json()
-  } catch {
-    return null
+  } catch (e) {
+    console.error("Scan trigger failed:", e)
+    return { success: false }
   }
 }
 
 // ============================================================
-// 사용자 설정 저장 (Trading)
+// [3] 트레이딩 API (cresc-trading-api 연동)
 // ============================================================
-export async function saveUserSettings(settings) {
-  const headers = await getHeaders()
-  const res = await fetch(`${TRADING_API_URL}/user/settings`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      leverage:         settings.leverage,
-      trade_pct:        settings.tradePct / 100,
-      sl_atr_mult:      settings.slAtrMult ?? 1.5,
-      tp_atr_mult:      settings.tpAtrMult ?? 3.5,
-      sl_mode:          settings.slMode || "atr",
-      selected_symbols: settings.selected_symbols || ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
-    }),
-  })
-  if (!res.ok) {
-    let detail = "설정 저장 실패"
-    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
-    throw new Error(`[${res.status}] ${detail}`)
-  }
-  return await res.json()
-}
 
-// ============================================================
-// 바이낸스 API 키 저장 (Trading)
-// ============================================================
-export async function saveApiKey(apiKey, secretKey) {
-  const headers = await getHeaders()
-  const res = await fetch(`${TRADING_API_URL}/api-key/save`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      api_key: apiKey,
-      secret_key: secretKey,
-    }),
-  })
-  if (!res.ok) {
-    let detail = "API 키 저장 실패"
-    try { const err = await res.json(); detail = err.detail || JSON.stringify(err) } catch {}
-    throw new Error(`[${res.status}] ${detail}`)
-  }
-  return await res.json()
-}
-
-export async function fetchUserSubscription() {
+export const fetchTrades = async () => {
   try {
-    const headers = await getHeaders()
-    const res = await fetch(`${TRADING_API_URL}/subscription`, { headers })
-    if (!res.ok) return null
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${TRADING_API_URL}/api/logs`, { headers })
+    if (!res.ok) throw new Error("Trading API 연결 실패")
     return await res.json()
-  } catch (error) {
-    console.error("구독 정보 조회 실패:", error)
-    return null
+  } catch (e) {
+    console.error("fetchTrades Error:", e)
+    return { error: true }
   }
 }
 
-export async function checkFeatureAccess(feature) {
+export const updateBotSettings = async (settings) => {
   try {
-    const headers = await getHeaders()
-    const res = await fetch(`${TRADING_API_URL}/subscription/check`, {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${TRADING_API_URL}/api/settings`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ feature })
+      body: JSON.stringify(settings)
     })
-    if (!res.ok) return { has_access: false, plan_type: "free" }
     return await res.json()
-  } catch (error) {
-    console.error("기능 접근 확인 실패:", error)
-    return { has_access: false, plan_type: "free" }
+  } catch (e) {
+    console.error("Settings update failed:", e)
+    return { success: false }
   }
 }
 
-// ============================================================
-// 거래 내역 조회 (Trading)
-// ============================================================
-export async function fetchTrades() {
+export async function toggleBot() {
   try {
-    const headers = await getHeaders()
-    const res = await fetch(`${TRADING_API_URL}/trades`, { headers })
-    if (!res.ok) return []
-    const json = await res.json()
-    return json.trades || []
-  } catch {
-    return []
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${TRADING_API_URL}/api/toggle`, {
+      method: "POST",
+      headers
+    })
+    return await res.json()
+  } catch (e) {
+    return { success: false }
   }
 }
 
 // ============================================================
-// Scanner API (for Home.jsx compatibility)
+// [4] DB 작업 및 티어 관리 (Supabase 직접 통신)
 // ============================================================
-export async function getApiKey() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return null
-    
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('api_key')
-      .eq('user_id', session.user.id)
-      .eq('is_active', true)
-      .single()
-    
-    if (error || !data) return null
-    return data.api_key
-  } catch {
-    return null
-  }
-}
 
-export async function setApiKey(apiKey) {
+export async function saveApiKey(apiKey) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error("로그인이 필요합니다")
     
-    // 기존 API Key 비활성화
+    // 기존 키 비활성화
     await supabase
       .from('api_keys')
       .update({ is_active: false })
       .eq('user_id', session.user.id)
     
-    // 새 API Key 저장
+    // 신규 키 등록
     const { error } = await supabase
       .from('api_keys')
       .insert({
@@ -346,35 +152,12 @@ export async function setApiKey(apiKey) {
 }
 
 export async function getTier() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return "free"
-    
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('tier')
-      .eq('user_id', session.user.id)
-      .eq('is_active', true)
-      .single()
-    
-    if (error || !data) return "free"
-    return data.tier || "free"
-  } catch {
-    return "free"
-  }
+  const auth = await checkAuth()
+  return auth.tier
 }
 
-export async function triggerScan() {
-  try {
-    const headers = await getHeaders()
-    const res = await fetch(`${SCANNER_API_URL}/scan`, { 
-      method: 'POST',
-      headers 
-    })
-    if (!res.ok) throw new Error(`Scan failed: ${res.status}`)
-    return await res.json()
-  } catch (error) {
-    console.error("Trigger scan error:", error)
-    throw error
-  }
+// Home.jsx 등에서 쓰던 기존 함수명 호환용
+export const getApiKey = async () => {
+  const auth = await checkAuth()
+  return auth.api_key
 }

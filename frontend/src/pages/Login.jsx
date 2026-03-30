@@ -213,7 +213,7 @@ export default function Login() {
         zIndex: 10
       }}>
         <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>CRESC</span>.SCANNER
+          <span style={{ color: BLUE_LT }}>QUANTER</span>.SCANNER
         </span>
       </div>
 

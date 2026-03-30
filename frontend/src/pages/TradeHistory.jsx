@@ -58,7 +58,7 @@ export default function TradeHistory() {
         borderBottom: `0.5px solid ${BORDER}`
       }}>
         <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>CRESC</span>.HISTORY
+          <span style={{ color: BLUE_LT }}>QUANTER</span>.HISTORY
         </span>
       </div>
 
