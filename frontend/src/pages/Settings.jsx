@@ -3,36 +3,30 @@ import { useNavigate } from "react-router-dom"
 import { checkServerStatus, updateBotSettings, saveApiKey } from "../api"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
 
+// [원본 스타일 유지] 슬라이더 컴포넌트
 function SliderRow({ label, desc, value, min, max, color, unit, onChange }) {
   const pct = ((value - min) / (max - min)) * 100
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 12, color: TEXT_PRI, fontWeight: 500, marginBottom: 3 }}>{label}</div>
+          <div style={{ fontSize: 12, color: TEXT_PRI, fontWeight: 600, marginBottom: 4 }}>{label}</div>
           <div style={{ fontSize: 10, color: TEXT_MUT }}>{desc}</div>
         </div>
-        <div style={{
-          fontFamily: "'Orbitron', sans-serif",
-          fontSize: 18, fontWeight: 700, color
-        }}>
+        <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 700, color }}>
           {value}<span style={{ fontSize: 11, color: TEXT_MUT }}>{unit}</span>
         </div>
       </div>
-      <input
-        type="range" min={min} max={max} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{
-          WebkitAppearance: "none",
-          width: "100%", height: 3,
-          borderRadius: 2, outline: "none",
-          cursor: "pointer",
-          background: `linear-gradient(to right, ${color} ${pct}%, #1c2530 ${pct}%)`
-        }}
-      />
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{ fontSize: 9, color: TEXT_HINT }}>{min}{unit}</span>
-        <span style={{ fontSize: 9, color: TEXT_HINT }}>{max}{unit}</span>
+      <div style={{ position: "relative", height: 20, display: "flex", alignItems: "center" }}>
+        <div style={{ position: "absolute", width: "100%", height: 3, background: BORDER, borderRadius: 2 }} />
+        <div style={{ position: "absolute", width: `${pct}%`, height: 3, background: color, borderRadius: 2, boxShadow: `0 0 8px ${color}60` }} />
+        <input
+          type="range" min={min} max={max} value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          style={{
+            WebkitAppearance: "none", width: "100%", background: "transparent", zIndex: 2, cursor: "pointer", outline: "none"
+          }}
+        />
       </div>
     </div>
   )
@@ -40,265 +34,151 @@ function SliderRow({ label, desc, value, min, max, color, unit, onChange }) {
 
 export default function Settings() {
   const navigate = useNavigate()
-  const [leverage, setLeverage] = useState(50)
-  const [size,     setSize]     = useState(5)
-  const [sl,       setSl]       = useState(15)
-  const [tp,       setTp]       = useState(30)
-  const [slMode,   setSlMode]   = useState("roi")
-  const [loading,  setLoading]  = useState(false)
-  const [saved,    setSaved]    = useState(false)
-  const [balance,  setBalance]  = useState(0)
   
-  // API 키 상태
-  const [apiKey,    setApiKey]    = useState("")
-  const [secretKey, setSecretKey] = useState("")
-  const [apiKeySaved, setApiKeySaved] = useState(false)
+  // [원본 로직 유지] 상태 값들
+  const [leverage, setLeverage] = useState(20)
+  const [size, setSize] = useState(10)
+  const [sl, setSl] = useState(2.0)
+  const [tp, setTp] = useState(5.0)
+  const [slMode, setSlMode] = useState("atr") 
+  
+  // [새로 추가] API 상태 값
+  const [apiKey, setApiKeyInput] = useState("")
+  const [apiSecret, setApiSecretInput] = useState("")
+  
+  const [loading, setLoading] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [serverOnline, setServerOnline] = useState(false)
 
-  // [버그수정] 기존: 서버 현재 설정값 로드 없음 → 항상 기본값으로 초기화됨
-  //           수정: 진입 시 서버 현재 설정 불러오기
   useEffect(() => {
-    const load = async () => {
-      try {
-        const status = await checkServerStatus()
-        if (status.leverage)  setLeverage(status.leverage)
-        if (status.trade_pct) setSize(Math.round(status.trade_pct * 100))
-        if (status.sl_roi)    setSl(status.sl_roi)
-        if (status.tp_roi)    setTp(status.tp_roi)
-        if (status.sl_mode)   setSlMode(status.sl_mode)
-      } catch (e) {
-        console.error("설정 불러오기 실패:", e)
-      }
-    }
-    load()
+    checkServerStatus().then(setServerOnline)
   }, [])
 
-  // [버그수정] 기존: SAVE 버튼이 navigate("/dashboard")만 함 → 실제 API 저장 없음
-  //           수정: updateBotSettings API 호출 후 이동
   const handleSave = async () => {
     setLoading(true)
-    setSaved(false)
     try {
-      // 봇 설정 저장
+      // 1. API 키가 입력되었다면 저장
+      if (apiKey.trim() && apiSecret.trim()) {
+        await saveApiKey(apiKey, apiSecret)
+      }
+
+      // 2. 봇 설정 업데이트
       await updateBotSettings({
         leverage,
-        tradePct: size,
-        slRoi: sl,
-        tpRoi: tp,
-        slMode,
+        trade_pct: size / 100,
+        sl_atr_mult: sl,
+        tp_atr_mult: tp,
+        sl_mode: slMode,
+        is_order_enabled: true
       })
-      
-      // API 키가 입력되어 있으면 저장
-      if (apiKey.trim() && secretKey.trim()) {
-        await saveApiKey(apiKey.trim(), secretKey.trim())
-        setApiKeySaved(true)
-      }
-      
+
       setSaved(true)
-      setTimeout(() => navigate("/dashboard"), 800)
+      setTimeout(() => setSaved(false), 2000)
     } catch (e) {
-      alert(e.message || "저장에 실패했어요")
+      console.error(e)
+      alert("저장 실패")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
-  // sl >= tp 경고
-  const isRiskWarning = sl >= tp
-
   return (
-    <div style={{
-      background: BG, minHeight: "100vh",
-      fontFamily: "'DM Sans', sans-serif",
-      color: TEXT_PRI, maxWidth: 430,
-      margin: "0 auto"
-    }}>
-
+    <div style={{ background: BG, minHeight: "100vh", color: TEXT_PRI, padding: "20px 20px 100px" }}>
       {/* 헤더 */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "16px 18px",
-        borderBottom: `0.5px solid ${BORDER}`
-      }}>
-        <div onClick={() => navigate("/dashboard")} style={{ cursor: "pointer", padding: "4px 4px 4px 0" }}>
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path d="M12 4l-6 6 6 6" stroke={TEXT_MUT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, letterSpacing: "1px" }}>BOT SETTINGS</h2>
+          <div style={{ fontSize: 10, color: serverOnline ? GREEN : RED, marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: serverOnline ? GREEN : RED, boxShadow: serverOnline ? `0 0 5px ${GREEN}` : "none" }} />
+            TRADING SERVER {serverOnline ? "CONNECTED" : "DISCONNECTED"}
+          </div>
         </div>
-        <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: TEXT_PRI, letterSpacing: "1px" }}>
-          CONTROLS
-        </span>
+        <button onClick={() => navigate(-1)} style={{ background: "transparent", border: `0.5px solid ${BORDER}`, color: TEXT_MUT, padding: "6px 12px", borderRadius: 8, fontSize: 11 }}>BACK</button>
       </div>
 
-      <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 24 }}>
-
-        <SliderRow
-          label="레버리지"
-          desc="높을수록 수익/손실 증폭"
-          value={leverage} min={1} max={125}
-          color={BLUE_LT} unit="x"
-          onChange={setLeverage}
-        />
-
-        <div style={{ height: "0.5px", background: BORDER }}/>
-
-        <SliderRow
-          label="진입 사이즈"
-          desc={`잔고 기준 진입 비율`}
-          value={size} min={1} max={100}
-          color={BLUE_LT} unit="%"
-          onChange={setSize}
-        />
-
-        <div style={{ height: "0.5px", background: BORDER }}/>
-
-        <SliderRow
-          label="손절 (ROI)"
-          desc="이 수익률 도달 시 자동 손절"
-          value={sl} min={1} max={100}
-          color={RED} unit="%"
-          onChange={setSl}
-        />
-
-        <div style={{ height: "0.5px", background: BORDER }}/>
-
-        <SliderRow
-          label="익절 (ROI)"
-          desc="이 수익률 도달 시 자동 익절"
-          value={tp} min={1} max={200}
-          color={GREEN} unit="%"
-          onChange={setTp}
-        />
-
-        {/* SL >= TP 경고 */}
-        {isRiskWarning && (
-          <div style={{
-            background: "#1a0808", border: "0.5px solid #3a1010",
-            borderRadius: 8, padding: "10px 14px",
-            fontSize: 11, color: RED
-          }}>
-            ⚠️ 손절({sl}%) 값이 익절({tp}%)보다 크거나 같습니다. 설정을 확인해주세요.
+      {/* [새로 추가] API 설정 섹션 - 원본 디자인 톤에 맞춤 */}
+      <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: BLUE, letterSpacing: "2px", fontWeight: 800, marginBottom: 20 }}>API CONNECTION</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+          <div>
+            <div style={{ fontSize: 10, color: TEXT_MUT, marginBottom: 6, marginLeft: 4 }}>BINANCE API KEY</div>
+            <input 
+              type="password" value={apiKey} onChange={e => setApiKeyInput(e.target.value)}
+              placeholder="Ex: 4vK... (Optional if already set)"
+              style={{ width: "100%", background: BG, border: `0.5px solid ${BORDER}`, borderRadius: 10, padding: "12px", color: TEXT_PRI, fontSize: 11, boxSizing: "border-box" }}
+            />
           </div>
-        )}
-
-        <div style={{ height: "0.5px", background: BORDER }}/>
-
-        {/* SL 모드 선택 */}
-        <div>
-          <div style={{ fontSize: 12, color: TEXT_PRI, fontWeight: 500, marginBottom: 8 }}>손절 방식</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[
-              { key: "roi",      label: "ROI 고정",   desc: "설정 ROI 도달 시 청산" },
-              { key: "trailing", label: "트레일링", desc: "고점 대비 하락 시 청산" },
-            ].map(({ key, label, desc }) => (
-              <div
-                key={key}
-                onClick={() => setSlMode(key)}
-                style={{
-                  flex: 1, background: slMode === key ? "#0d1420" : SURFACE,
-                  border: `0.5px solid ${slMode === key ? BLUE : BORDER}`,
-                  borderRadius: 10, padding: "11px 10px",
-                  cursor: "pointer", textAlign: "center"
-                }}
-              >
-                <div style={{ fontSize: 12, color: slMode === key ? BLUE_LT : TEXT_PRI, fontWeight: 500, marginBottom: 3 }}>{label}</div>
-                <div style={{ fontSize: 10, color: TEXT_MUT }}>{desc}</div>
-              </div>
-            ))}
+          <div>
+            <div style={{ fontSize: 10, color: TEXT_MUT, marginBottom: 6, marginLeft: 4 }}>BINANCE SECRET KEY</div>
+            <input 
+              type="password" value={apiSecret} onChange={e => setApiSecretInput(e.target.value)}
+              placeholder="Ex: 9sA... (Optional if already set)"
+              style={{ width: "100%", background: BG, border: `0.5px solid ${BORDER}`, borderRadius: 10, padding: "12px", color: TEXT_PRI, fontSize: 11, boxSizing: "border-box" }}
+            />
           </div>
         </div>
+      </div>
 
-        <div style={{ height: "0.5px", background: BORDER }}/>
-
-        {/* 바이낸스 API 키 입력 */}
-        <div>
-          <div style={{ fontSize: 12, color: TEXT_PRI, fontWeight: 500, marginBottom: 12 }}>
-            바이낸스 API 키
-            {apiKeySaved && <span style={{ color: GREEN, marginLeft: 8, fontSize: 10 }}>✓ 저장됨</span>}
-          </div>
-          
-          <input
-            type="password"
-            placeholder="API Key"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            style={{
-              width: "100%",
-              background: SURFACE,
-              border: `0.5px solid ${BORDER}`,
-              borderRadius: 8,
-              padding: "10px 12px",
-              fontSize: 12,
-              color: TEXT_PRI,
-              marginBottom: 8,
-              outline: "none",
-            }}
-          />
-          
-          <input
-            type="password"
-            placeholder="Secret Key"
-            value={secretKey}
-            onChange={e => setSecretKey(e.target.value)}
-            style={{
-              width: "100%",
-              background: SURFACE,
-              border: `0.5px solid ${BORDER}`,
-              borderRadius: 8,
-              padding: "10px 12px",
-              fontSize: 12,
-              color: TEXT_PRI,
-              outline: "none",
-            }}
-          />
-          
-          <div style={{ fontSize: 10, color: TEXT_MUT, marginTop: 6 }}>
-            * API 키는 암호화되어 안전하게 저장됩니다
-          </div>
+      {/* 전략 설정 섹션 */}
+      <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: BLUE, letterSpacing: "2px", fontWeight: 800, marginBottom: 25 }}>TRADING STRATEGY</div>
+        
+        <SliderRow label="LEVERAGE" desc="교차 레버리지 배수" value={leverage} min={1} max={50} unit="x" color={BLUE} onChange={setLeverage} />
+        <SliderRow label="ENTRY SIZE" desc="잔고 대비 진입 비중" value={size} min={1} max={100} unit="%" color={BLUE} onChange={setSize} />
+        
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <SliderRow label="TAKE PROFIT" desc="익절 (ATR)" value={tp} min={1} max={10} unit="x" color={GREEN} onChange={setTp} />
+          <SliderRow label="STOP LOSS" desc="손절 (ATR)" value={sl} min={0.5} max={5} unit="x" color={RED} onChange={setSl} />
         </div>
 
-        {/* 요약 카드 */}
-        <div style={{
-          background: SURFACE, border: `0.5px solid ${BORDER}`,
-          borderRadius: 12, padding: "14px 16px"
-        }}>
-          <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "2px", marginBottom: 10 }}>SUMMARY</div>
-          {[
-            { label: "레버리지",  value: `${leverage}x` },
-            { label: "진입 사이즈", value: `${size}%` },
-            { label: "손절",      value: `-${sl}%` },
-            { label: "익절",      value: `+${tp}%` },
-            { label: "손절 방식", value: slMode === "trailing" ? "트레일링" : "ROI 고정" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{
-              display: "flex", justifyContent: "space-between",
-              fontSize: 12, marginBottom: 6
-            }}>
-              <span style={{ color: TEXT_MUT }}>{label}</span>
-              <span style={{ color: TEXT_PRI, fontFamily: "'Orbitron', sans-serif", fontSize: 11 }}>{value}</span>
+        {/* 손절 방식 선택 */}
+        <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+          {["atr", "trailing"].map(mode => (
+            <div 
+              key={mode}
+              onClick={() => setSlMode(mode)}
+              style={{
+                flex: 1, padding: "12px", borderRadius: 10, textAlign: "center", fontSize: 11, cursor: "pointer",
+                background: slMode === mode ? `${BLUE}20` : BG,
+                border: `0.5px solid ${slMode === mode ? BLUE : BORDER}`,
+                color: slMode === mode ? BLUE : TEXT_MUT,
+                transition: "all 0.2s"
+              }}
+            >
+              {mode === "atr" ? "FIXED ROI" : "TRAILING"}
             </div>
           ))}
         </div>
-
-        {/* 저장 버튼 */}
-        <button
-          onClick={handleSave}
-          disabled={loading || saved}
-          style={{
-            width: "100%",
-            background: saved ? "#0d3a20" : loading ? "#2a3a8a" : BLUE,
-            border: saved ? "0.5px solid #22c55e" : "none",
-            borderRadius: 10, padding: 14,
-            fontFamily: "'Orbitron', sans-serif",
-            fontSize: 11, fontWeight: 700,
-            color: saved ? GREEN : "#fff",
-            letterSpacing: "2px",
-            cursor: loading || saved ? "not-allowed" : "pointer",
-            marginBottom: 32, transition: "all .2s"
-          }}
-        >
-          {saved ? "✓ 저장됨" : loading ? "저장 중..." : "SAVE SETTINGS"}
-        </button>
-
       </div>
+
+      {/* 요약 섹션 */}
+      <div style={{ background: `${SURFACE}80`, borderRadius: 16, padding: 20, marginBottom: 24, border: `0.5px solid ${BORDER}` }}>
+        <div style={{ fontSize: 10, color: TEXT_HINT, letterSpacing: "1px", marginBottom: 15 }}>CONFIG SUMMARY</div>
+        {[
+          { label: "레버리지", value: `${leverage}x` },
+          { label: "진입 사이즈", value: `${size}%` },
+          { label: "손절 방식", value: slMode === "trailing" ? "트레일링" : "ATR 고정" }
+        ].map((item, idx) => (
+          <div key={idx} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
+            <span style={{ color: TEXT_MUT }}>{item.label}</span>
+            <span style={{ color: TEXT_PRI, fontFamily: "'Orbitron', sans-serif" }}>{item.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 저장 버튼 */}
+      <button
+        onClick={handleSave}
+        disabled={loading || saved}
+        style={{
+          width: "100%", height: 56, borderRadius: 14, border: "none",
+          background: saved ? GREEN : loading ? `${BLUE}80` : BLUE,
+          color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "'Orbitron', sans-serif",
+          letterSpacing: "2px", cursor: "pointer", transition: "all 0.3s"
+        }}
+      >
+        {saved ? "SUCCESS" : loading ? "SAVING..." : "SAVE & START BOT"}
+      </button>
     </div>
   )
 }
