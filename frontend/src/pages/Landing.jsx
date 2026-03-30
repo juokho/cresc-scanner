@@ -180,8 +180,8 @@ export default function Landing() {
           </div>
 
           <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.35, marginBottom: 20 }}>
-            시간 쏟지 마세요<br/>
-            <span style={{ color: BLUE_LT }}>투자는 AI에게</span>
+            투자에 시간 쏟지 마세요<br/>
+            <span style={{ color: BLUE_LT }}>자동 스캐너 및 자동 매매 봇</span>
           </div>
 
           <div style={{ fontSize: 14, color: TEXT_MUT, lineHeight: 1.9, marginBottom: 32 }}>
@@ -215,9 +215,9 @@ export default function Landing() {
             QUANTER를 쓰는 이유
           </div>
           {[
-            { icon: "💼", title: "본업에 집중", desc: "시장을 볼 시간에 더 중요한 일을 하세요. 매매 타이밍은 AI가 잡습니다." },
-            { icon: "👨‍👩‍👧", title: "가족과 함께", desc: "차트 대신 가족을 보세요. 포지션 관리는 봇이 24시간 대신합니다." },
-            { icon: "😌", title: "감정 없는 매매", desc: "공포와 탐욕 없이, 데이터와 로직으로만 움직이는 투자를 경험하세요." },
+            { icon: "1", title: "본업에 집중", desc: "시장을 볼 시간에 더 중요한 일을 하세요. 매매 타이밍은 AI가 잡습니다." },
+            { icon: "2", title: "가족과 함께", desc: "차트 대신 가족을 보세요. 포지션 관리는 봇이 24시간 대신합니다." },
+            { icon: "3", title: "감정 없는 매매", desc: "공포와 탐욕 없이, 데이터와 로직으로만 움직이는 투자를 경험하세요." },
           ].map((item, i) => (
             <div key={i} style={{
               display: "flex", gap: 16, alignItems: "flex-start",
