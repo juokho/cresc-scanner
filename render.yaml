@@ -1,29 +1,5 @@
 services:
-  # ── 프론트엔드 정적 사이트 ──────────────────────────────────
-  - type: static
-    name: cresc-scanner-frontend
-    plan: free
-    buildCommand: |
-      npm install
-      npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: NODE_VERSION
-        value: 20.11.0
-      - key: VITE_SCANNER_API_URL
-        sync: false
-      - key: VITE_TRADING_API_URL
-        sync: false
-      - key: VITE_SUPABASE_URL
-        sync: false
-      - key: VITE_SUPABASE_ANON_KEY
-        sync: false
-    routes:
-      - type: rewrite
-        source: /.*
-        destination: /index.html
-
-  # ── 스캐너 백엔드 (web service = HTTP 포트 열림) ─────────────
+  # ── 스캐너 백엔드 ─────────────────────────────────────────
   - type: web
     name: cresc-scanner-api
     runtime: python
@@ -44,7 +20,7 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false
 
-  # ── 트레이딩 백엔드 (web service = HTTP 포트 열림) ───────────
+  # ── 트레이딩 백엔드 ───────────────────────────────────────
   - type: web
     name: cresc-trading-api
     runtime: python
