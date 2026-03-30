@@ -370,4 +370,5 @@ if os.path.exists(dist_path):
         return FileResponse(fp) if os.path.isfile(fp) else FileResponse(os.path.join(dist_path, "index.html"))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=7864)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,6 +69,11 @@ async def get_current_user(authorization: str = Header(None)) -> str:
     except Exception:
         raise HTTPException(401, "유효하지 않은 토큰입니다")
 
+class SubscriptionInfo(BaseModel):
+    plan_type: str = "free"
+    status: str = "active"
+    features: list = []
+
 # 구독 정보 조회 함수
 async def get_user_subscription(user_id: str) -> SubscriptionInfo:
     try:
@@ -121,8 +127,8 @@ async def get_user_subscription(user_id: str) -> SubscriptionInfo:
             features=["basic_trading", "3_symbols", "manual_control"]
         )
 # 기능 접근 권한 확인 함수
-def check_feature_access(user_id: str, required_feature: str) -> bool:
-    subscription = get_user_subscription(user_id)
+async def check_feature_access(user_id: str, required_feature: str) -> bool:
+    subscription = await get_user_subscription(user_id)
     return required_feature in subscription.features
 
 # ============================================================
@@ -245,21 +251,22 @@ async def get_balance(user_id: str = Depends(get_current_user)):
 @app.get("/subscription")
 async def get_subscription(user_id: str = Depends(get_current_user)):
     """사용자 구독 정보 조회"""
-    return get_user_subscription(user_id)
+    return await get_user_subscription(user_id)
 
-@app.post("/subscription/check")
+@app.get("/subscription/check")
 async def check_subscription_access(feature: str, user_id: str = Depends(get_current_user)):
     """기능 접근 권한 확인"""
-    has_access = check_feature_access(user_id, feature)
+    has_access = await check_feature_access(user_id, feature)
+    sub = await get_user_subscription(user_id)
     return {
         "has_access": has_access,
         "feature": feature,
-        "plan_type": get_user_subscription(user_id).plan_type
+        "plan_type": sub.plan_type
     }
 @app.post("/bot/settings")
 async def update_bot_settings(req: BotSettingsRequest, user_id: str = Depends(get_current_user)):
     # 플랜별 설정 제한
-    subscription = get_user_subscription(user_id)
+    subscription = await get_user_subscription(user_id)
     
     # Free 플랜: 3개 심볼 제한
     if subscription.plan_type == "free" and req.selected_symbols and len(req.selected_symbols) > 3:

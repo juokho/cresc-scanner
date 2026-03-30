@@ -14,6 +14,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../dist'
+    outDir: '../dist',   // render.yaml staticPublishPath: ./dist 와 일치
+    emptyOutDir: true,
   }
 })
