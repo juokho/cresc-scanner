@@ -1,9 +1,12 @@
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from supabase import create_client
@@ -363,6 +366,30 @@ async def save_api_key(req: ApiKeyRequest, user_id: str = Depends(get_current_us
         on_conflict="user_id",
     ).execute()
     return {"message": "API 키가 저장되었습니다"}
+
+# ============================================================
+# [8] 정적 파일 서빙 (프론트엔드)
+# ============================================================
+dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+
+# 정적 파일 마운트 (API보다 먼저)
+if os.path.exists(dist_path):
+    app.mount("/assets", StaticFiles(directory=os.path.join(dist_path, "assets")), name="assets")
+
+@app.get("/")
+async def serve_root():
+    index_path = os.path.join(dist_path, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"message": f"Built files not found at {dist_path}. Run 'npm run build' in frontend/"}
+
+if os.path.exists(dist_path):
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        fp = os.path.join(dist_path, full_path)
+        return FileResponse(fp) if os.path.isfile(fp) else FileResponse(os.path.join(dist_path, "index.html"))
 
 if __name__ == "__main__":
     import uvicorn
