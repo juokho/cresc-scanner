@@ -90,6 +90,19 @@ export const fetchTrades = async () => {
   }
 }
 
+export const fetchBalance = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`${TRADING_API_URL}/balance`, {
+      headers: { "Authorization": `Bearer ${session?.access_token || ""}` }
+    })
+    if (!res.ok) throw new Error("Balance fetch error")
+    return await res.json()
+  } catch (e) {
+    return { balance: 0, error: e.message }
+  }
+}
+
 export const updateBotSettings = async (settings) => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
