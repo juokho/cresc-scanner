@@ -470,13 +470,35 @@ def scan_loop_5m():
                     if symbol in failed_tickers:
                         del failed_tickers[symbol]
                 except Exception as e:
-                    print(f"[scan 5m] {symbol}: {e}")
-                    # 실패하면 카운트 증가
-                    failed_tickers[symbol] = failed_tickers.get(symbol, 0) + 1
+                    print(f"[{symbol}/5m] 처리 실패: {e}")
         
-        scan_state["5m"]["running"], scan_state["5m"]["last_scan"] = False, datetime.now().strftime("%H:%M:%S")
-        print(f"[Scan Complete] Total: {len(ticker_data['5m'])}, Failed: {len(failed_tickers)}")
+        scan_state["5m"]["running"] = False
+        print(f"[Scan Complete] 5m Total: {len(tickers)}, Failed: {len(failed_tickers)}")
         time.sleep(TIMEFRAME_CONFIG["5m"]["sleep"])
+
+def scan_loop_1d():
+    """일봉 자동 스캔 - 하루에 1번"""
+    is_premium_server = bool(PREMIUM_API_KEYS)
+    while True:
+        scan_state["1d"]["running"], scan_state["1d"]["progress"] = True, 0
+        tickers = list(LEVERAGE_MAP.items())
+        
+        with ThreadPoolExecutor(max_workers=TIMEFRAME_CONFIG["1d"]["workers"]) as ex:
+            future_map = {ex.submit(process_ticker, s, i, "1d", is_premium_server): s for s, i in tickers}
+            done = 0
+            for fut in as_completed(future_map):
+                done += 1
+                scan_state["1d"]["progress"] = int(done / len(tickers) * 100)
+                symbol = future_map[fut]
+                try:
+                    result = fut.result()
+                except Exception as e:
+                    print(f"[{symbol}/1d] 처리 실패: {e}")
+        
+        scan_state["1d"]["running"] = False
+        print(f"[Scan Complete] 1d Total: {len(tickers)}")
+        # 24시간 대기
+        time.sleep(TIMEFRAME_CONFIG["1d"]["sleep"])
 
 def scan_timeframe(timeframe: str, auth_token: str = None):
     """온디맨드 스캔 - 특정 시간봉"""
@@ -517,6 +539,7 @@ def scan_timeframe(timeframe: str, auth_token: str = None):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     threading.Thread(target=scan_loop_5m, daemon=True).start()
+    threading.Thread(target=scan_loop_1d, daemon=True).start()
     yield
 
 app = FastAPI(lifespan=lifespan)
