@@ -10,16 +10,23 @@ export async function checkAuth() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return { is_premium: false, tier: "free", user: null }
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('plan,is_active')
+    
+    // API 키가 있는지 먼저 확인
+    const { data: keyData, error: keyError } = await supabase
+      .from('api_keys')
+      .select('is_active')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
       .maybeSingle()
-    if (error || !data) return { is_premium: false, tier: "free", user: session.user, api_key: null }
+    
+    if (keyError || !keyData) {
+      return { is_premium: false, tier: "free", user: session.user, api_key: null }
+    }
+    
+    // API 키가 있으면 premium으로 간주
     return {
-      is_premium: data.plan === "premium",
-      tier: data.plan || "free",
+      is_premium: true,
+      tier: "premium",
       user: session.user,
       api_key: null
     }
@@ -136,16 +143,13 @@ export async function checkServerStatus() {
 // ============================================================
 export async function saveApiKey(apiKey, secretKey) {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) throw new Error("로그인이 필요합니다")
-    await supabase.from('api_keys').update({ is_active: false }).eq('user_id', session.user.id)
-    const { error } = await supabase.from('api_keys').insert({
-      user_id: session.user.id,
-      api_key: apiKey,
-      tier: "premium",
-      is_active: true
+    const headers = await getAuthHeader()
+    const res = await fetch(`${TRADING_API_URL}/api-key/save`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ api_key: apiKey, secret_key: secretKey })
     })
-    if (error) throw error
+    if (!res.ok) throw new Error("API 키 저장 실패")
     return { success: true }
   } catch (error) {
     throw error
@@ -156,11 +160,16 @@ export async function getTier() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return "free"
+    
     const { data, error } = await supabase
-      .from('api_keys').select('tier')
-      .eq('user_id', session.user.id).eq('is_active', true).maybeSingle()
+      .from('api_keys')
+      .select('is_active')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    
     if (error || !data) return "free"
-    return data.tier || "free"
+    return "premium"  // API 키가 있으면 premium
   } catch { return "free" }
 }
 
