@@ -222,7 +222,18 @@ async def position_cleanup_loop() -> None:
                 if not bn_client:
                     continue
 
-                pos_info = bn_client.futures_position_information()
+                try:
+                    pos_info = bn_client.futures_position_information()
+                except Exception as api_err:
+                    log.error(f"Binance API 오류 ({user_id}): {api_err}")
+                    # IP/키 오류 시 봇 자동 정지
+                    if "-2015" in str(api_err) or "-2014" in str(api_err):
+                        with _state_lock:
+                            get_user_state(user_id)["is_order_enabled"] = False
+                        log.error(f"봇 자동 정지: IP 또는 API 키 오류")
+                    continue
+                if not pos_info:
+                    continue
                 for p in pos_info:
                     amt    = float(p.get("positionAmt", 0))
                     symbol = p["symbol"]
