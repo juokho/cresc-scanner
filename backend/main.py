@@ -146,9 +146,13 @@ async def lifespan(app: FastAPI):
 # ============================================================
 
 app = FastAPI(lifespan=lifespan)
+
+# CORS - 환경변수 우선, 없으면 전체 허용
+_origins = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
