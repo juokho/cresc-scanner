@@ -355,75 +355,78 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
         # 포지션 관리 - 모든 시간대별로 분리
         with data_lock:
             tf_key = timeframe
-          # 포지션 관리는 5m에서만
-        if timeframe == "5m":
-            with data_lock:
-                # DEBUG: 시그널 상태 로깅
-                if long_e or short_e:
-                    print(f"[DEBUG SIGNAL] {symbol}: long_e={long_e}, short_e={short_e}, in_history={symbol in trade_history}")
+          # 포지션 관리 - 모든 시간대별로 적용
+        with data_lock:
+            tf_key = timeframe
+            tf_positions = trade_history[tf_key]
+            
+            # DEBUG: 시그널 상태 로깅
+            if long_e or short_e:
+                print(f"[DEBUG SIGNAL] {symbol} [{tf_key}]: long_e={long_e}, short_e={short_e}, in_history={symbol in tf_positions}")
+            
+            if (long_e or short_e) and symbol not in tf_positions:
+                side = "LONG" if long_e else "SHORT"
+                tf_positions[symbol] = {
+                    "entry":      curr_p,
+                    "side":       side,
+                    "be_active":  False,
+                    "sl":  curr_p - (atr*STOP_MULT if side=="LONG" else -atr*STOP_MULT),
+                    "tp":  curr_p + (atr*TP_MULT   if side=="LONG" else -atr*TP_MULT),
+                    "entry_time": datetime.now().strftime("%H:%M"),
+                    "timeframe":  tf_key,
+                }
+                print(f"[ENTRY] {symbol} [{tf_key}] {side} @ {curr_p:.4f}, SL={tf_positions[symbol]['sl']:.4f}, TP={tf_positions[symbol]['tp']:.4f}")
+                log_trade(symbol, side, curr_p, status="ENTRY", is_premium=is_premium_server)
                 
-                if (long_e or short_e) and symbol not in trade_history:
-                    side = "LONG" if long_e else "SHORT"
-                    trade_history[symbol] = {
-                        "entry":      curr_p,
-                        "side":       side,
-                        "be_active":  False,
-                        "sl":  curr_p - (atr*STOP_MULT if side=="LONG" else -atr*STOP_MULT),
-                        "tp":  curr_p + (atr*TP_MULT   if side=="LONG" else -atr*TP_MULT),
-                        "entry_time": datetime.now().strftime("%H:%M"),
-                    }
-                    print(f"[ENTRY] {symbol} {side} @ {curr_p:.4f}, SL={trade_history[symbol]['sl']:.4f}, TP={trade_history[symbol]['tp']:.4f}")
-                    log_trade(symbol, side, curr_p, status="ENTRY", is_premium=is_premium_server)
-                    
-                    # Supabase에도 저장
-                    if is_premium_server:
-                        save_position_to_supabase(
-                            symbol=symbol,
-                            name=info.get("name", symbol),
-                            timeframe=timeframe,
-                            side=side,
-                            entry=curr_p,
-                            sl=trade_history[symbol]["sl"],
-                            tp=trade_history[symbol]["tp"]
-                        )
+                # Supabase에도 저장
+                if is_premium_server:
+                    save_position_to_supabase(
+                        symbol=symbol,
+                        name=info.get("name", symbol),
+                        timeframe=tf_key,
+                        side=side,
+                        entry=curr_p,
+                        sl=tf_positions[symbol]["sl"],
+                        tp=tf_positions[symbol]["tp"]
+                    )
 
-                if symbol in trade_history:
-                    t = trade_history[symbol]
-                    profit = (curr_p - t["entry"]) / t["entry"] * 100 * (1 if t["side"]=="LONG" else -1)
+            if symbol in tf_positions:
+                t = tf_positions[symbol]
+                profit = (curr_p - t["entry"]) / t["entry"] * 100 * (1 if t["side"]=="LONG" else -1)
+                
+                # BE (Breakeven) 활성화
+                if profit >= BE_THRESHOLD and not t["be_active"]:
+                    t["sl"], t["be_active"] = t["entry"], True
+                    log_trade(symbol, t["side"], t["entry"], curr_p, profit, "UPDATE", is_premium=is_premium_server)
                     
-                    # BE (Breakeven) 활성화
-                    if profit >= BE_THRESHOLD and not t["be_active"]:
-                        t["sl"], t["be_active"] = t["entry"], True
-                        log_trade(symbol, t["side"], t["entry"], curr_p, profit, "UPDATE", is_premium=is_premium_server)
-                        
-                        # Supabase 업데이트
-                        if is_premium_server:
-                            update_position_in_supabase(symbol, timeframe, {
-                                "be_active": True,
-                                "sl_price": t["entry"],
-                                "current_price": curr_p,
-                                "unrealized_pnl": round(profit, 2)
-                            })
+                    # Supabase 업데이트
+                    if is_premium_server:
+                        update_position_in_supabase(symbol, tf_key, {
+                            "be_active": True,
+                            "sl_price": t["entry"],
+                            "current_price": curr_p,
+                            "unrealized_pnl": round(profit, 2)
+                        })
+                
+                # SL/TP 체크
+                hit_sl = (curr_p <= t["sl"]) if t["side"]=="LONG" else (curr_p >= t["sl"])
+                hit_tp = (curr_p >= t["tp"]) if t["side"]=="LONG" else (curr_p <= t["tp"])
+                
+                if hit_sl or hit_tp:
+                    print(f"[EXIT] {symbol} [{tf_key}] @ {curr_p:.4f}, profit={profit:.2f}%")
+                    log_trade(symbol, t["side"], t["entry"], curr_p, profit, "EXIT", is_premium=is_premium_server)
                     
-                    # SL/TP 체크
-                    hit_sl = (curr_p <= t["sl"]) if t["side"]=="LONG" else (curr_p >= t["sl"])
-                    hit_tp = (curr_p >= t["tp"]) if t["side"]=="LONG" else (curr_p <= t["tp"])
+                    # Supabase에서 청산
+                    if is_premium_server:
+                        close_position_in_supabase(
+                            symbol=symbol,
+                            timeframe=tf_key,
+                            exit_price=curr_p,
+                            realized_pnl=round(profit, 2),
+                            reason="TP" if hit_tp else "SL"
+                        )
                     
-                    if hit_sl or hit_tp:
-                        print(f"[EXIT] {symbol} @ {curr_p:.4f}, profit={profit:.2f}%")
-                        log_trade(symbol, t["side"], t["entry"], curr_p, profit, "EXIT", is_premium=is_premium_server)
-                        
-                        # Supabase에서 청산
-                        if is_premium_server:
-                            close_position_in_supabase(
-                                symbol=symbol,
-                                timeframe=timeframe,
-                                exit_price=curr_p,
-                                realized_pnl=round(profit, 2),
-                                reason="TP" if hit_tp else "SL"
-                            )
-                        
-                        del trade_history[symbol]
+                    del tf_positions[symbol]
 
         with data_lock:
             ticker_data[timeframe][symbol] = {
