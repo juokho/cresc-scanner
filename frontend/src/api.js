@@ -11,17 +11,17 @@ export async function checkAuth() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return { is_premium: false, tier: "free", user: null }
     const { data, error } = await supabase
-      .from('subscriptions')
-      .select('plan,is_active')
+      .from('api_keys')
+      .select('api_key,tier')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
       .maybeSingle()
     if (error || !data) return { is_premium: false, tier: "free", user: session.user, api_key: null }
     return {
-      is_premium: data.plan === "premium",
-      tier: data.plan || "free",
+      is_premium: data.tier === "premium",
+      tier: data.tier || "free",
       user: session.user,
-      api_key: null
+      api_key: data.api_key
     }
   } catch (e) {
     return { is_premium: false, tier: "free", user: null }
@@ -36,10 +36,9 @@ async function getAuthHeader() {
 // ============================================================
 // 스캐너 API
 // ============================================================
-export async function fetchSignals(tf = "5m") {
+export const fetchSignals = async (tf = "5m") => {
   try {
-    const headers = await getAuthHeader()
-    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`, { headers })
+    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`)
     if (!res.ok) throw new Error("Scanner API error")
     const data = await res.json()
     return { signals: data.signals || [], scan: data.scan || {}, tier: data.tier || "free", error: false }
