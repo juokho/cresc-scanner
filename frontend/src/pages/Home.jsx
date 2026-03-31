@@ -261,11 +261,13 @@ export default function Home() {
       }
       setSignals(data.signals || [])
       setScanState(data.scan || {})
-      setTierState(data.tier || "free")
-      setIsPremium(data.tier === "premium")
+      // 티어는 checkAuth에서 설정한 값 유지 (백엔드 응답으로 덮어쓰지 않음)
+      // setTierState(data.tier || "free")
+      // setIsPremium(data.tier === "premium")
       setLastUpdate(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
       
-      if (data.tier === "premium" && tf === "5m") {
+      // Premium 기능은 이미 알고 있는 tier 상태로 확인
+      if (tier === "premium" && tf === "5m") {
         const tradesData = await fetchTrades()
         if (!tradesData.error) {
           setTrades(tradesData || [])
