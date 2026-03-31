@@ -4,11 +4,9 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from supabase import create_client
-import os
 
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ALLOWED_ORIGINS
 from crypto_utils import encrypt, decrypt
@@ -398,30 +396,7 @@ async def save_api_key(req: ApiKeyRequest, user_id: str = Depends(get_current_us
     ).execute()
     return {"message": "API 키가 저장되었습니다"}
 
-# SPA catch-all route - React Router paths serve index.html
-@app.get("/{full_path:path}", response_class=HTMLResponse)
-async def serve_spa(full_path: str):
-    # API 경로는 제외
-    if full_path.startswith("api/") or full_path.startswith("auth/"):
-        raise HTTPException(status_code=404, detail="Not found")
-    
-    index_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "index.html")
-    if os.path.exists(index_path):
-        with open(index_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    else:
-        # Render 배포 환경: dist 폴더가 다른 위치에 있을 수 있음
-        alt_paths = [
-            "/app/frontend/dist/index.html",
-            "/frontend/dist/index.html",
-            "./frontend/dist/index.html",
-        ]
-        for path in alt_paths:
-            if os.path.exists(path):
-                with open(path, "r", encoding="utf-8") as f:
-                    return HTMLResponse(content=f.read())
-        raise HTTPException(status_code=404, detail="index.html not found")
-
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(__import__("os").getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

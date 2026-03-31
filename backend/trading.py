@@ -226,6 +226,47 @@ async def position_cleanup_loop() -> None:
                     pos_info = bn_client.futures_position_information()
                     if not pos_info:
                         continue
+
+                    for p in pos_info:
+                        amt    = float(p.get("positionAmt", 0))
+                        symbol = p["symbol"]
+
+                        if amt == 0:
+                            user_position_meta[user_id].pop(symbol, None)
+                            continue
+
+                        meta = user_position_meta[user_id].get(symbol)
+                        if not meta:
+                            continue
+
+                        mark    = float(p.get("markPrice", 0))
+                        entry   = meta["entry"]
+                        atr     = meta["atr"]
+                        side    = meta["side"]
+                        sl_mult = state["sl_atr_mult"]
+                        tp_mult = state["tp_atr_mult"]
+
+                        should_close, reason = False, ""
+                        if state["sl_mode"] == "atr":
+                            if side == "LONG":
+                                if mark <= entry - atr * sl_mult:
+                                    should_close, reason = True, "SL Hit"
+                                elif mark >= entry + atr * tp_mult:
+                                    should_close, reason = True, "TP Hit"
+                            else:
+                                if mark >= entry + atr * sl_mult:
+                                    should_close, reason = True, "SL Hit"
+                                elif mark <= entry - atr * tp_mult:
+                                    should_close, reason = True, "TP Hit"
+
+                        if should_close:
+                            close_side = "SELL" if amt > 0 else "BUY"
+                            bn_client.futures_create_order(
+                                symbol=symbol, side=close_side,
+                                type="MARKET", quantity=abs(amt), reduceOnly=True,
+                            )
+                            add_execution_log(user_id, symbol, "EXIT", "SUCCESS", reason, mark)
+
                 except Exception as api_err:
                     err_str = str(api_err)
                     log.error(f"Binance API 오류 ({user_id}): {err_str}")
@@ -234,45 +275,6 @@ async def position_cleanup_loop() -> None:
                             get_user_state(user_id)["is_order_enabled"] = False
                         log.error(f"봇 자동 정지 ({user_id}): IP/키 오류")
                     continue
-                for p in pos_info:
-                    amt    = float(p.get("positionAmt", 0))
-                    symbol = p["symbol"]
-
-                    if amt == 0:
-                        user_position_meta[user_id].pop(symbol, None)
-                        continue
-
-                    meta = user_position_meta[user_id].get(symbol)
-                    if not meta:
-                        continue
-
-                    mark     = float(p.get("markPrice", 0))
-                    entry    = meta["entry"]
-                    atr      = meta["atr"]
-                    side     = meta["side"]
-                    sl_mult  = state["sl_atr_mult"]
-                    tp_mult  = state["tp_atr_mult"]
-
-                    should_close, reason = False, ""
-                    if state["sl_mode"] == "atr":
-                        if side == "LONG":
-                            if mark <= entry - atr * sl_mult:
-                                should_close, reason = True, "SL Hit"
-                            elif mark >= entry + atr * tp_mult:
-                                should_close, reason = True, "TP Hit"
-                        else:
-                            if mark >= entry + atr * sl_mult:
-                                should_close, reason = True, "SL Hit"
-                            elif mark <= entry - atr * tp_mult:
-                                should_close, reason = True, "TP Hit"
-
-                    if should_close:
-                        close_side = "SELL" if amt > 0 else "BUY"
-                        bn_client.futures_create_order(
-                            symbol=symbol, side=close_side,
-                            type="MARKET", quantity=abs(amt), reduceOnly=True,
-                        )
-                        add_execution_log(user_id, symbol, "EXIT", "SUCCESS", reason, mark)
 
         except Exception as e:
             log.error(f"position_cleanup_loop 오류: {e}", exc_info=True)
