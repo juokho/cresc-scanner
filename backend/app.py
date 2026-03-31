@@ -355,9 +355,6 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
         # 포지션 관리 - 모든 시간대별로 분리
         with data_lock:
             tf_key = timeframe
-          # 포지션 관리 - 모든 시간대별로 적용
-        with data_lock:
-            tf_key = timeframe
             tf_positions = trade_history[tf_key]
             
             # DEBUG: 시그널 상태 로깅
@@ -538,6 +535,14 @@ def scan_timeframe(timeframe: str, auth_token: str = None):
 # ── FastAPI ───────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("[STARTUP] Loading active positions from Supabase...")
+    
+    # 각 타임프레임별로 활성 포지션 로드
+    for tf in ["5m", "30m", "1h", "1d"]:
+        loaded_positions = load_active_positions_from_supabase(tf)
+        trade_history[tf] = loaded_positions
+        print(f"[STARTUP] Loaded {len(loaded_positions)} positions for {tf}")
+    
     threading.Thread(target=scan_loop_5m, daemon=True).start()
     threading.Thread(target=scan_loop_1d, daemon=True).start()
     yield
