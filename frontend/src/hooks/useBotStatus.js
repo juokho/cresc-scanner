@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { fetchBalance, fetchPositions } from "../api"
 import { supabase } from "../supabase"
 
 const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "http://localhost:8001"

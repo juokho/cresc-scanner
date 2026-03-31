@@ -27,7 +27,7 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
-log = logging.getLogger("QUANTERQ")
+log = logging.getLogger("CRESCQ")
 
 # ============================================================
 # [2] Supabase 클라이언트
@@ -186,9 +186,12 @@ async def start_bot(req: BotStartRequest, user_id: str = Depends(get_current_use
 
     api = decrypt(res.data[0]["api_key_encrypted"])
     sec = decrypt(res.data[0]["secret_key_encrypted"])
+
+    if not api or not sec:
+        raise HTTPException(400, "API 키 복호화 실패 — ENCRYPTION_KEY를 확인하거나 API 키를 다시 등록해주세요")
     
     if not init_binance(user_id, api, sec):
-        raise HTTPException(400, "Binance 인증에 실패했습니다")
+        raise HTTPException(400, "Binance 인증에 실패했습니다 — API 키와 선물거래 권한을 확인해주세요")
 
     with _state_lock:
         state = get_user_state(user_id)

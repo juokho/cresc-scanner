@@ -58,7 +58,7 @@ def init_binance(user_id: str, api_key: str, secret_key: str) -> bool:
             state["bn_symbols"] = bn_symbols
         return True
     except Exception as e:
-        log.error(f"Binance 인증 실패: {e}")
+        log.error(f"Binance 인증 실패: {type(e).__name__}: {e}")
         return False
 
 # ============================================================

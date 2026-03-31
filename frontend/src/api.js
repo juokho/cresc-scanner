@@ -46,15 +46,15 @@ export async function checkAuth() {
 // ============================================================
 // [2] 스캐너 API (cresc-scanner-api)
 // ============================================================
-export async function fetchSignals(timeframe = "5m") {
+export const fetchSignals = async (tf = "5m") => {
   try {
-    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${timeframe}`)
+    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`)
     if (!res.ok) throw new Error("Scanner API response was not ok")
     const data = await res.json()
-    return { signals: data.signals || [], error: false }
+    return { signals: data.signals || [], scan: data.scan || {}, tier: data.tier || "free", error: false }
   } catch (e) {
     console.error("Fetch Signals Error:", e)
-    return { signals: [], error: true }
+    return { signals: [], scan: {}, tier: "free", error: true }
   }
 }
 
