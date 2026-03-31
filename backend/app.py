@@ -62,7 +62,7 @@ from tickers import LEVERAGE_MAP
 
 # ── 공유 상태 ─────────────────────────────────────────────────
 ticker_data    = {"5m": {}, "30m": {}, "1h": {}, "1d": {}}
-trade_history  = {}
+trade_history  = {"5m": {}, "30m": {}, "1h": {}, "1d": {}}  # 시간대별 포지션 분리
 processing_set = set()
 failed_tickers = {}  # 실패한 티커 추적 {symbol: retry_count}
 scan_state     = {"5m": {"running": False, "progress": 0, "current": "", "last_scan": ""},
@@ -182,37 +182,41 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
         curr_p = float(close.iloc[-1])
         signal = "LONG" if long_e else "SHORT" if short_e else "WAIT"
 
-        # 포지션 관리는 5m에서만
-        if timeframe == "5m":
-            with data_lock:
-                # DEBUG: 시그널 상태 로깅
-                if long_e or short_e:
-                    print(f"[DEBUG SIGNAL] {symbol}: long_e={long_e}, short_e={short_e}, in_history={symbol in trade_history}")
-                
-                if (long_e or short_e) and symbol not in trade_history:
-                    side = "LONG" if long_e else "SHORT"
-                    trade_history[symbol] = {
-                        "entry":      curr_p,
-                        "side":       side,
-                        "be_active":  False,
-                        "sl":  curr_p - (atr*STOP_MULT if side=="LONG" else -atr*STOP_MULT),
-                        "tp":  curr_p + (atr*TP_MULT   if side=="LONG" else -atr*TP_MULT),
-                        "entry_time": datetime.now().strftime("%H:%M"),
-                    }
-                    print(f"[ENTRY] {symbol} {side} @ {curr_p:.4f}, SL={trade_history[symbol]['sl']:.4f}, TP={trade_history[symbol]['tp']:.4f}")
-                    log_trade(symbol, side, curr_p, status="ENTRY", is_premium=is_premium_server)
+        # 포지션 관리 - 모든 시간대별로 분리
+        with data_lock:
+            tf_key = timeframe
+            tf_positions = trade_history[tf_key]
+            
+            # DEBUG: 시그널 상태 로깅
+            if long_e or short_e:
+                print(f"[DEBUG SIGNAL] {symbol} [{tf_key}]: long_e={long_e}, short_e={short_e}, in_history={symbol in tf_positions}")
+            
+            if (long_e or short_e) and symbol not in tf_positions:
+                side = "LONG" if long_e else "SHORT"
+                tf_positions[symbol] = {
+                    "entry":      curr_p,
+                    "side":       side,
+                    "be_active":  False,
+                    "sl":  curr_p - (atr*STOP_MULT if side=="LONG" else -atr*STOP_MULT),
+                    "tp":  curr_p + (atr*TP_MULT   if side=="LONG" else -atr*TP_MULT),
+                    "entry_time": datetime.now().strftime("%H:%M"),
+                    "timeframe":  tf_key,
+                }
+                print(f"[ENTRY] {symbol} [{tf_key}] {side} @ {curr_p:.4f}, SL={tf_positions[symbol]['sl']:.4f}, TP={tf_positions[symbol]['tp']:.4f}")
+                log_trade(symbol, side, curr_p, status="ENTRY", is_premium=is_premium_server, timeframe=tf_key)
 
-                if symbol in trade_history:
-                    t = trade_history[symbol]
-                    profit = (curr_p - t["entry"]) / t["entry"] * 100 * (1 if t["side"]=="LONG" else -1)
-                    if profit >= BE_THRESHOLD and not t["be_active"]:
-                        t["sl"], t["be_active"] = t["entry"], True
-                        log_trade(symbol, t["side"], t["entry"], curr_p, profit, "UPDATE", is_premium_server)
-                    hit_sl = (curr_p <= t["sl"]) if t["side"]=="LONG" else (curr_p >= t["sl"])
-                    hit_tp = (curr_p >= t["tp"]) if t["side"]=="LONG" else (curr_p <= t["tp"])
-                    if hit_sl or hit_tp:
-                        log_trade(symbol, t["side"], t["entry"], curr_p, profit, "EXIT", is_premium_server)
-                        del trade_history[symbol]
+            if symbol in tf_positions:
+                t = tf_positions[symbol]
+                profit = (curr_p - t["entry"]) / t["entry"] * 100 * (1 if t["side"]=="LONG" else -1)
+                if profit >= BE_THRESHOLD and not t["be_active"]:
+                    t["sl"], t["be_active"] = t["entry"], True
+                    log_trade(symbol, t["side"], t["entry"], curr_p, profit, "UPDATE", is_premium=is_premium_server, timeframe=tf_key)
+                hit_sl = (curr_p <= t["sl"]) if t["side"]=="LONG" else (curr_p >= t["sl"])
+                hit_tp = (curr_p >= t["tp"]) if t["side"]=="LONG" else (curr_p <= t["tp"])
+                if hit_sl or hit_tp:
+                    print(f"[EXIT] {symbol} [{tf_key}] @ {curr_p:.4f}, profit={profit:.2f}%")
+                    log_trade(symbol, t["side"], t["entry"], curr_p, profit, "EXIT", is_premium=is_premium_server, timeframe=tf_key)
+                    del tf_positions[symbol]
 
         with data_lock:
             ticker_data[timeframe][symbol] = {
@@ -321,14 +325,15 @@ def get_data(tf: str = "5m", auth: dict = Depends(verify_token)):
     with data_lock:
         signals = []
         tf_data = ticker_data.get(tf, {})
+        tf_positions = trade_history.get(tf, {})
         for sym, d in tf_data.items():
             entry = {"symbol": sym, **d}
-            if auth["is_premium"] and tf == "5m":
-                entry["position"] = trade_history.get(sym)
+            if auth["is_premium"]:
+                entry["position"] = tf_positions.get(sym)
             signals.append(entry)
     signals.sort(key=lambda x: abs(x["score"]), reverse=True)
     resp = {"signals": signals, "scan": scan_state.get(tf, {}), "total": len(signals), "tier": auth["tier"], "timeframe": tf}
-    if auth["is_premium"] and tf == "5m":
+    if auth["is_premium"]:
         resp["active"] = sum(1 for s in signals if s.get("position"))
     return JSONResponse(resp)
 
@@ -340,10 +345,58 @@ def trigger_scan(tf: str = "5m", auth: dict = Depends(verify_token)):
     
     # 백그라운드에서 스캔 실행
     def run_scan():
-        scan_timeframe(tf)
+        scan_timeframe(tf, auth_token=None)
     
     threading.Thread(target=run_scan, daemon=True).start()
-    return JSONResponse({"success": True, "timeframe": tf, "message": "Scan started"})
+    return JSONResponse({"message": f"{tf} 스캔 시작", "status": "running"})
+
+@app.get("/api/stats")
+def get_stats(tf: str = "5m", auth: dict = Depends(verify_token)):
+    """시그널 성과표 - 승률, 평균 수익률 등"""
+    if not auth["is_premium"]:
+        return JSONResponse({"error": "Premium required"}, status_code=403)
+    
+    if tf not in TIMEFRAME_CONFIG:
+        tf = "5m"
+    
+    # trade_history에서 청산된 포지션들의 성과 계산
+    # 실제로는 trading_logs 테이블을 사용하는 것이 더 정확함
+    stats = {
+        "timeframe": tf,
+        "total_signals": 0,
+        "win_count": 0,
+        "loss_count": 0,
+        "win_rate": 0,
+        "avg_profit": 0,
+        "avg_loss": 0,
+        "total_profit": 0,
+        "long_signals": 0,
+        "short_signals": 0,
+        "active_positions": 0,
+    }
+    
+    with data_lock:
+        tf_positions = trade_history.get(tf, {})
+        stats["active_positions"] = len(tf_positions)
+        
+        # 현재 포지션들의 미실현 손익 계산
+        unrealized_pnl = []
+        for symbol, pos in tf_positions.items():
+            if symbol in ticker_data.get(tf, {}):
+                current_price = ticker_data[tf][symbol].get("price", pos["entry"])
+                profit = (current_price - pos["entry"]) / pos["entry"] * 100 * (1 if pos["side"]=="LONG" else -1)
+                unrealized_pnl.append(profit)
+                if pos["side"] == "LONG":
+                    stats["long_signals"] += 1
+                else:
+                    stats["short_signals"] += 1
+        
+        if unrealized_pnl:
+            stats["avg_unrealized"] = round(sum(unrealized_pnl) / len(unrealized_pnl), 2)
+            stats["best_position"] = round(max(unrealized_pnl), 2)
+            stats["worst_position"] = round(min(unrealized_pnl), 2)
+    
+    return JSONResponse(stats)
 
 @app.get("/api/log")
 def get_log(auth: dict = Depends(require_premium)):
