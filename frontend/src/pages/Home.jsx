@@ -782,6 +782,10 @@ export default function Home() {
 
         {activeTab === "positions" && isPremium && (
           <div>
+            {/* 시간대 표시 */}
+            <div style={{ fontSize: 11, color: TEXT_PRI, marginBottom: 8, fontWeight: 600 }}>
+              📊 {timeframe === "5m" ? "5분" : timeframe === "30m" ? "30분" : timeframe === "1h" ? "1시간" : "일"}봉 포지션
+            </div>
             {/* 진입 중인 포지션 */}
             <div style={{ fontSize: 11, color: TEXT_MUT, marginBottom: 12, fontWeight: 600, letterSpacing: "1px" }}>
               진입 중인 포지션
@@ -800,7 +804,7 @@ export default function Home() {
             
             {/* 완료된 거래 (거래 내역에서 EXIT만) */}
             <div style={{ fontSize: 11, color: TEXT_MUT, marginBottom: 12, fontWeight: 600, letterSpacing: "1px" }}>
-              익절/손절 완료
+              익절/손절 완료 ({timeframe === "5m" ? "5분" : timeframe === "30m" ? "30분" : timeframe === "1h" ? "1시간" : "일"}봉)
             </div>
             {trades.filter(t => t.Status === "EXIT").length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
