@@ -25,21 +25,21 @@ LOG_FILE = "trade_log.csv"
 
 # ── 인증 ─────────────────────────────────────────────────────
 def verify_token(x_api_key: str = Header(default=""), x_tier: str = Header(default="free")) -> dict:
-    """간단한 tier 검증 - 헤더에서 직접 tier 확인 후 api_keys 테이블로 검증"""
+    """간단한 tier 검증 - 헤더에서 직접 tier 확인 후 subscriptions 테이블로 검증"""
     print(f"[DEBUG] verify_token called with API key: {x_api_key[:10]}..., tier header: {x_tier}")
     is_premium, tier = False, x_tier or "free"
     
-    # API 키가 있으면 Supabase에서 검증
+    # API 키가 있으면 Supabase에서 검증 (subscriptions 테이블 사용)
     if x_api_key and SUPABASE_URL and SUPABASE_SERVICE_KEY:
         try:
             res = requests.get(
-                f"{SUPABASE_URL}/rest/v1/api_keys?api_key=eq.{x_api_key}&is_active=eq.true&select=tier",
+                f"{SUPABASE_URL}/rest/v1/subscriptions?api_key=eq.{x_api_key}&is_active=eq.true&select=plan",
                 headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
                 timeout=3,
             )
             print(f"[DEBUG] Supabase response: status={res.status_code}, data={res.json()}")
             if res.status_code == 200 and res.json():
-                tier = res.json()[0].get("tier", "free")
+                tier = res.json()[0].get("plan", "free")
                 is_premium = tier == "premium"
         except Exception as e:
             print(f"[Auth] Error: {e}")
