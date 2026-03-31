@@ -185,6 +185,10 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
         # 포지션 관리는 5m에서만
         if timeframe == "5m":
             with data_lock:
+                # DEBUG: 시그널 상태 로깅
+                if long_e or short_e:
+                    print(f"[DEBUG SIGNAL] {symbol}: long_e={long_e}, short_e={short_e}, in_history={symbol in trade_history}")
+                
                 if (long_e or short_e) and symbol not in trade_history:
                     side = "LONG" if long_e else "SHORT"
                     trade_history[symbol] = {
@@ -195,6 +199,7 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
                         "tp":  curr_p + (atr*TP_MULT   if side=="LONG" else -atr*TP_MULT),
                         "entry_time": datetime.now().strftime("%H:%M"),
                     }
+                    print(f"[ENTRY] {symbol} {side} @ {curr_p:.4f}, SL={trade_history[symbol]['sl']:.4f}, TP={trade_history[symbol]['tp']:.4f}")
                     log_trade(symbol, side, curr_p, status="ENTRY", is_premium=is_premium_server)
 
                 if symbol in trade_history:
