@@ -11,17 +11,17 @@ export async function checkAuth() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return { is_premium: false, tier: "free", user: null }
     const { data, error } = await supabase
-      .from('api_keys')
-      .select('api_key,tier')
+      .from('subscriptions')
+      .select('plan,is_active')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
       .maybeSingle()
     if (error || !data) return { is_premium: false, tier: "free", user: session.user, api_key: null }
     return {
-      is_premium: data.tier === "premium",
-      tier: data.tier || "free",
+      is_premium: data.plan === "premium",
+      tier: data.plan || "free",
       user: session.user,
-      api_key: data.api_key
+      api_key: null
     }
   } catch (e) {
     return { is_premium: false, tier: "free", user: null }
