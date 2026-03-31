@@ -77,6 +77,18 @@ def db_request(method, path, json=None, params=None):
         print(f"[DB Error] {e}")
     return None
 
+def update_db_prices(tf, current_prices):
+    """DB에 저장된 활성 포지션들의 현재가를 갱신하여 NaN% 방지"""
+    active_pos = db_request("GET", "scanner_positions", params={"status": "eq.ACTIVE", "timeframe": f"eq.{tf}"})
+    if active_pos:
+        for pos in active_pos:
+            symbol = pos.get("symbol")
+            if symbol in current_prices:
+                new_price = current_prices[symbol]
+                db_request("PATCH", "scanner_positions", 
+                           params={"id": f"eq.{pos['id']}"}, 
+                           data={"current_price": new_price})
+
 def load_positions_from_db():
     """서버 재시작 시 활성 포지션 복원"""
     for tf in trade_history.keys():
@@ -167,12 +179,22 @@ def scan_loop(tf):
     while True:
         scan_state[tf]["running"] = True
         tickers = list(LEVERAGE_MAP.items())
+        current_batch_prices = {}  # 현재가 추적
+        
         with ThreadPoolExecutor(max_workers=TIMEFRAME_CONFIG[tf]["workers"]) as ex:
             done = 0
             futures = {ex.submit(process_ticker, s, i, tf): s for s, i in tickers}
             for _ in as_completed(futures):
                 done += 1
                 scan_state[tf]["progress"] = int(done / len(tickers) * 100)
+        
+        # 스캔 완료 후 현재가 DB 업데이트 (NaN% 방지)
+        with data_lock:
+            for symbol, data in ticker_data.get(tf, {}).items():
+                current_batch_prices[symbol] = data.get("price")
+        
+        update_db_prices(tf, current_batch_prices)
+        
         scan_state[tf]["running"], scan_state[tf]["last_scan"] = False, datetime.now().strftime("%H:%M:%S")
         time.sleep(TIMEFRAME_CONFIG[tf]["sleep"])
 
@@ -205,6 +227,13 @@ def get_data(tf: str = "5m", auth: dict = Depends(verify_token)):
 
     signals.sort(key=lambda x: abs(x["score"]), reverse=True)
     return {"signals": signals, "scan": scan_state.get(target_tf), "tier": auth["tier"]}
+
+@app.post("/api/scan")
+async def trigger_scan(request: Request):
+    """404 에러를 방지하고 스캔 요청을 처리"""
+    params = request.query_params
+    tf = params.get("tf", "5m")
+    return {"message": f"{tf} 스캔은 백그라운드에서 자동 실행 중입니다.", "status": "running"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
