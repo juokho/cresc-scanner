@@ -24,25 +24,31 @@ PREMIUM_API_KEYS     = [k.strip() for k in os.getenv("PREMIUM_API_KEYS", "").spl
 LOG_FILE = "trade_log.csv"
 
 # ── 인증 ─────────────────────────────────────────────────────
-def verify_token(x_api_key: str = Header(default=""), x_tier: str = Header(default="free")) -> dict:
-    """간단한 tier 검증 - 헤더에서 직접 tier 확인 후 subscriptions 테이블로 검증"""
-    print(f"[DEBUG] verify_token called with API key: {x_api_key[:10]}..., tier header: {x_tier}")
-    is_premium, tier = False, x_tier or "free"
+def verify_token(request: Request):
+    """API 요청의 Authorization 헤더 검증"""
+    x_api_key = request.headers.get("x-api-key")
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
     
-    # API 키가 있으면 Supabase에서 검증 (subscriptions 테이블 사용)
-    if x_api_key and SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    is_premium, tier = False, "free"
+    
+    # 1. x-api-key 헤더 우선 확인
+    if x_api_key and x_api_key in PREMIUM_API_KEYS:
+        is_premium, tier = True, "premium"
+    
+    # 2. Supabase 인증 (x-api-key 없을 때)
+    elif auth_token and SUPABASE_URL and SUPABASE_SERVICE_KEY:
         try:
-            res = requests.get(
-                f"{SUPABASE_URL}/rest/v1/subscriptions?api_key=eq.{x_api_key}&is_active=eq.true&select=plan",
-                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
-                timeout=3,
-            )
-            print(f"[DEBUG] Supabase response: status={res.status_code}, data={res.json()}")
-            if res.status_code == 200 and res.json():
-                tier = res.json()[0].get("plan", "free")
-                is_premium = tier == "premium"
+            res = requests.post(f"{SUPABASE_URL}/auth/v1/user", 
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {auth_token}"})
+            if res.status_code == 200:
+                user = res.json()
+                # api_keys 테이블에서 활성 키 확인
+                key_res = requests.get(f"{SUPABASE_URL}/rest/v1/api_keys?user_id=eq.{user['id']}&is_active=eq.true",
+                    headers={"apikey": SUPABASE_SERVICE_KEY})
+                if key_res.status_code == 200 and key_res.json():
+                    is_premium, tier = True, "premium"
         except Exception as e:
-            print(f"[Auth] Error: {e}")
+            print(f"[AUTH ERROR] Supabase check failed: {e}")
     else:
         print(f"[DEBUG] Missing: x_api_key={bool(x_api_key)}, SUPABASE_URL={bool(SUPABASE_URL)}, SUPABASE_SERVICE_KEY={bool(SUPABASE_SERVICE_KEY)}")
     
@@ -50,8 +56,9 @@ def verify_token(x_api_key: str = Header(default=""), x_tier: str = Header(defau
     if x_api_key and x_api_key in PREMIUM_API_KEYS:
         is_premium, tier = True, "premium"
     
-    print(f"[DEBUG] verify_token result: tier={tier}, is_premium={is_premium}")
-    return {"token": x_api_key, "is_premium": is_premium, "tier": tier}
+    print(f"[DEBUG] verify_token result: tier={tier}, is_premium={is_premium}, x_api_key={x_api_key[:10] if x_api_key else None}***")
+    
+    return {"is_premium": is_premium, "tier": tier}
 
 def require_premium(auth: dict = Depends(verify_token)):
     if not auth["is_premium"]:
@@ -567,12 +574,39 @@ def get_data(tf: str = "5m", auth: dict = Depends(verify_token)):
     with data_lock:
         signals = []
         tf_data = ticker_data.get(tf, {})
-        tf_positions = trade_history.get(tf, {})
+        
+        # Supabase에서 활성 포지션 조회 (메모리가 아닌 DB)
+        tf_positions = {}
+        if auth["is_premium"] and SUPABASE_URL and SUPABASE_SERVICE_KEY:
+            try:
+                url = f"{SUPABASE_URL}/rest/v1/scanner_positions?status=eq.ACTIVE&timeframe=eq.{tf}"
+                res = requests.get(url, headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"
+                }, timeout=5)
+                if res.status_code == 200:
+                    positions = res.json()
+                    for pos in positions:
+                        tf_positions[pos["symbol"]] = {
+                            "entry": float(pos["entry_price"]),
+                            "side": pos["side"],
+                            "be_active": pos.get("be_active", False),
+                            "sl": float(pos["sl_price"]),
+                            "tp": float(pos["tp_price"]),
+                            "current_price": float(pos.get("current_price", pos["entry_price"])),
+                            "entry_time": pos["entry_time"],
+                            "timeframe": pos["timeframe"],
+                            "supabase_id": pos["id"]
+                        }
+            except Exception as e:
+                print(f"[API ERROR] Failed to load positions: {e}")
+        
         for sym, d in tf_data.items():
             entry = {"symbol": sym, **d}
             if auth["is_premium"]:
-                entry["position"] = tf_positions.get(sym)
+                entry["position"] = tf_positions.get(sym)  # DB에서 가져온 포지션
             signals.append(entry)
+    
     signals.sort(key=lambda x: abs(x["score"]), reverse=True)
     resp = {"signals": signals, "scan": scan_state.get(tf, {}), "total": len(signals), "tier": auth["tier"], "timeframe": tf}
     if auth["is_premium"]:
@@ -601,8 +635,21 @@ def get_stats(tf: str = "5m", auth: dict = Depends(verify_token)):
     if tf not in TIMEFRAME_CONFIG:
         tf = "5m"
     
-    # trade_history에서 청산된 포지션들의 성과 계산
-    # 실제로는 trading_logs 테이블을 사용하는 것이 더 정확함
+    # Supabase에서 활성 포지션 수 계산 (메모리가 아닌 DB)
+    active_count = 0
+    if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/scanner_positions?status=eq.ACTIVE&timeframe=eq.{tf}"
+            res = requests.get(url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"
+            }, timeout=5)
+            if res.status_code == 200:
+                positions = res.json()
+                active_count = len(positions)
+        except Exception as e:
+            print(f"[API ERROR] Failed to get stats: {e}")
+    
     stats = {
         "timeframe": tf,
         "total_signals": 0,
@@ -614,29 +661,8 @@ def get_stats(tf: str = "5m", auth: dict = Depends(verify_token)):
         "total_profit": 0,
         "long_signals": 0,
         "short_signals": 0,
-        "active_positions": 0,
+        "active_positions": active_count,  # DB에서 가져온 활성 포지션 수
     }
-    
-    with data_lock:
-        tf_positions = trade_history.get(tf, {})
-        stats["active_positions"] = len(tf_positions)
-        
-        # 현재 포지션들의 미실현 손익 계산
-        unrealized_pnl = []
-        for symbol, pos in tf_positions.items():
-            if symbol in ticker_data.get(tf, {}):
-                current_price = ticker_data[tf][symbol].get("price", pos["entry"])
-                profit = (current_price - pos["entry"]) / pos["entry"] * 100 * (1 if pos["side"]=="LONG" else -1)
-                unrealized_pnl.append(profit)
-                if pos["side"] == "LONG":
-                    stats["long_signals"] += 1
-                else:
-                    stats["short_signals"] += 1
-        
-        if unrealized_pnl:
-            stats["avg_unrealized"] = round(sum(unrealized_pnl) / len(unrealized_pnl), 2)
-            stats["best_position"] = round(max(unrealized_pnl), 2)
-            stats["worst_position"] = round(min(unrealized_pnl), 2)
     
     return JSONResponse(stats)
 
