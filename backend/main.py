@@ -184,14 +184,23 @@ async def start_bot(req: BotStartRequest, user_id: str = Depends(get_current_use
     if not res.data:
         raise HTTPException(404, "API Key가 등록되지 않았습니다")
 
-    api = decrypt(res.data[0]["api_key_encrypted"])
-    sec = decrypt(res.data[0]["secret_key_encrypted"])
+    raw_api = res.data[0]["api_key_encrypted"]
+    raw_sec = res.data[0]["secret_key_encrypted"]
+    
+    log.info(f"[bot/start] raw_api exists={bool(raw_api)}, raw_sec exists={bool(raw_sec)}")
+    
+    api = decrypt(raw_api)
+    sec = decrypt(raw_sec)
+    
+    log.info(f"[bot/start] decrypt api len={len(api)}, sec len={len(sec)}")
 
     if not api or not sec:
-        raise HTTPException(400, "API 키 복호화 실패 — ENCRYPTION_KEY를 확인하거나 API 키를 다시 등록해주세요")
+        log.error(f"[bot/start] 복호화 실패 - ENCRYPTION_KEY 불일치 가능성")
+        raise HTTPException(400, f"API 키 복호화 실패 (api_len={len(api)}, sec_len={len(sec)})")
     
+    log.info(f"[bot/start] Binance 인증 시도 - api_key 앞 4자: {api[:4]}***")
     if not init_binance(user_id, api, sec):
-        raise HTTPException(400, "Binance 인증에 실패했습니다 — API 키와 선물거래 권한을 확인해주세요")
+        raise HTTPException(400, "Binance 인증에 실패했습니다")
 
     with _state_lock:
         state = get_user_state(user_id)
