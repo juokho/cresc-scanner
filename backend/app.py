@@ -307,7 +307,11 @@ def fetch_5m(symbol):
     return fetch_data(symbol, "5m", "5d")
 
 # ── 핵심 처리 ─────────────────────────────────────────────────
-def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
+def process_ticker(symbol, info, timeframe="5m", is_premium_server=None):
+    # Supabase가 설정되어 있으면 premium으로 간주
+    if is_premium_server is None:
+        is_premium_server = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+    
     config = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["5m"])
     scan_state[timeframe]["current"] = symbol
     
@@ -441,7 +445,7 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
 # ── 스캔 루프 ─────────────────────────────────────────────────
 def scan_loop_5m():
     """5분봉 자동 스캔 - 베이스 티커만"""
-    is_premium_server = bool(PREMIUM_API_KEYS)
+    is_premium_server = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
     while True:
         scan_state["5m"]["running"], scan_state["5m"]["progress"] = True, 0
         tickers = list(LEVERAGE_MAP.items())
@@ -475,7 +479,7 @@ def scan_loop_5m():
 
 def scan_loop_1d():
     """일봉 자동 스캔 - 하루에 1번"""
-    is_premium_server = bool(PREMIUM_API_KEYS)
+    is_premium_server = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
     while True:
         scan_state["1d"]["running"], scan_state["1d"]["progress"] = True, 0
         tickers = list(LEVERAGE_MAP.items())
@@ -502,7 +506,7 @@ def scan_timeframe(timeframe: str, auth_token: str = None):
     if timeframe not in TIMEFRAME_CONFIG:
         return {"error": "Invalid timeframe"}
     
-    is_premium_server = bool(PREMIUM_API_KEYS)
+    is_premium_server = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
     config = TIMEFRAME_CONFIG[timeframe]
     
     scan_state[timeframe]["running"], scan_state[timeframe]["progress"] = True, 0
