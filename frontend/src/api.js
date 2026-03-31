@@ -36,9 +36,10 @@ async function getAuthHeader() {
 // ============================================================
 // 스캐너 API
 // ============================================================
-export const fetchSignals = async (tf = "5m") => {
+export async function fetchSignals(tf = "5m") {
   try {
-    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`)
+    const headers = await getAuthHeader()
+    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`, { headers })
     if (!res.ok) throw new Error("Scanner API error")
     const data = await res.json()
     return { signals: data.signals || [], scan: data.scan || {}, tier: data.tier || "free", error: false }
