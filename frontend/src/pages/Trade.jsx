@@ -385,35 +385,83 @@ export default function Trade() {
           <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "2px", marginBottom: 10 }}>
             POSITIONS {positions.length > 0 && `(${positions.length})`}
           </div>
-          {positions.length === 0 ? (
-            <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 12, padding: "24px", textAlign: "center", color: TEXT_HINT, fontSize: 12 }}>
-              활성 포지션 없음
+          
+          {/* 포지션 리스트 - 표 형식 (Table-like List) */}
+          <div style={{ marginTop: 20 }}>
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "space-between", 
+              padding: "0 12px 8px", 
+              fontSize: 11, 
+              color: TEXT_MUT,
+              borderBottom: `1px solid ${BORDER}` 
+            }}>
+              <span style={{ flex: 2 }}>심볼 / 상태</span>
+              <span style={{ flex: 1.5, textAlign: "right" }}>진입/현재가</span>
+              <span style={{ flex: 1, textAlign: "right" }}>수익률</span>
             </div>
-          ) : positions.map((pos, i) => (
-            <div key={i} style={{ background: SURFACE, border: `0.5px solid ${pos.pnl >= 0 ? GREEN+"40" : RED+"40"}`, borderRadius: 12, padding: "14px", marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700 }}>{pos.symbol}</span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ background: pos.side === "LONG" ? "#1a3a2a" : "#3a1a1a", color: pos.side === "LONG" ? GREEN : RED, fontSize: 10, padding: "3px 8px", borderRadius: 4 }}>{pos.side}</span>
-                  <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700, color: pos.pnl >= 0 ? GREEN : RED }}>
-                    {pos.pnl >= 0 ? "+" : "-"}${Math.abs(pos.pnl).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                {[
-                  { label: "진입가", value: `$${pos.entry?.toLocaleString()}` },
-                  { label: "현재가", value: `$${pos.mark?.toLocaleString()}` },
-                  { label: "ROE",    value: <span style={{ color: pos.roe >= 0 ? GREEN : RED }}>{pos.roe?.toFixed(2)}%</span> },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 9, color: TEXT_MUT, marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 11 }}>{value}</div>
+
+            {positions.length > 0 ? (
+              positions.map((pos) => {
+                const pnl = pos.mark 
+                  ? ((pos.mark - pos.entry) / pos.entry * 100 * (pos.side === 'LONG' ? 1 : -1)).toFixed(2)
+                  : "0.00";
+                const isPlus = parseFloat(pnl) >= 0;
+
+                return (
+                  <div key={pos.id || pos.symbol} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "14px 12px",
+                    background: SURFACE,
+                    borderBottom: `0.5px solid ${BORDER}`,
+                    transition: "background 0.2s"
+                  }}>
+                    {/* 1. 심볼 및 방향 */}
+                    <div style={{ flex: 2 }}>
+                      <div style={{ fontWeight: 700, color: TEXT_PRI, fontSize: 14 }}>{pos.symbol}</div>
+                      <div style={{ 
+                        fontSize: 10, 
+                        color: pos.side === 'LONG' ? GREEN : RED, 
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4
+                      }}>
+                        <span style={{ fontSize: 8 }}>●</span> {pos.side}
+                      </div>
+                    </div>
+
+                    {/* 2. 가격 정보 (진입가/현재가) */}
+                    <div style={{ flex: 1.5, textAlign: "right" }}>
+                      <div style={{ fontSize: 12, color: TEXT_PRI, fontWeight: 500 }}>
+                        ${pos.mark?.toLocaleString() || "---"}
+                      </div>
+                      <div style={{ fontSize: 10, color: TEXT_MUT }}>
+                        ${pos.entry?.toLocaleString()}
+                      </div>
+                    </div>
+
+                    {/* 3. 수익률 (PnL) */}
+                    <div style={{ flex: 1, textAlign: "right" }}>
+                      <div style={{ 
+                        fontSize: 14, 
+                        fontWeight: 800, 
+                        color: isPlus ? GREEN : RED,
+                        textShadow: isPlus ? `0 0 8px ${GREEN}44` : `0 0 8px ${RED}44` 
+                      }}>
+                        {isPlus ? "+" : ""}{pnl}%
+                      </div>
+                    </div>
                   </div>
-                ))}
+                );
+              })
+            ) : (
+              <div style={{ textAlign: "center", padding: 40, color: TEXT_HINT, fontSize: 13 }}>
+                활성 포지션이 없습니다.
               </div>
-            </div>
-          ))}
+            )}
+          </div>
         </div>
 
         {/* 설정 슬라이더 */}
