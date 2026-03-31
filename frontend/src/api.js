@@ -12,16 +12,15 @@ export async function checkAuth() {
     if (!session?.user) return { is_premium: false, tier: "free", user: null }
     const { data, error } = await supabase
       .from('api_keys')
-      .select('api_key,tier')
+      .select('tier')
       .eq('user_id', session.user.id)
-      .eq('is_active', true)
       .maybeSingle()
     if (error || !data) return { is_premium: false, tier: "free", user: session.user, api_key: null }
     return {
       is_premium: data.tier === "premium",
       tier: data.tier || "free",
       user: session.user,
-      api_key: data.api_key
+      api_key: null
     }
   } catch (e) {
     return { is_premium: false, tier: "free", user: null }
@@ -137,12 +136,10 @@ export async function saveApiKey(apiKey, secretKey) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error("로그인이 필요합니다")
-    await supabase.from('api_keys').update({ is_active: false }).eq('user_id', session.user.id)
+    await supabase.from('api_keys').delete().eq('user_id', session.user.id)
     const { error } = await supabase.from('api_keys').insert({
       user_id: session.user.id,
-      api_key: apiKey,
       tier: "premium",
-      is_active: true
     })
     if (error) throw error
     return { success: true }
@@ -157,7 +154,7 @@ export async function getTier() {
     if (!session?.user) return "free"
     const { data, error } = await supabase
       .from('api_keys').select('tier')
-      .eq('user_id', session.user.id).eq('is_active', true).maybeSingle()
+      .eq('user_id', session.user.id).maybeSingle()
     if (error || !data) return "free"
     return data.tier || "free"
   } catch { return "free" }
