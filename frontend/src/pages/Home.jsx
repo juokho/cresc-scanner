@@ -261,11 +261,13 @@ export default function Home() {
       }
       setSignals(data.signals || [])
       setScanState(data.scan || {})
-      setTierState(data.tier || "free")
-      setIsPremium(data.tier === "premium")
+      // 티어는 checkAuth에서 설정한 값 유지 (백엔드 응답으로 덮어쓰지 않음)
+      // setTierState(data.tier || "free")
+      // setIsPremium(data.tier === "premium")
       setLastUpdate(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
       
-      if (data.tier === "premium" && tf === "5m") {
+      // Premium 기능은 이미 알고 있는 tier 상태로 확인
+      if (tier === "premium" && tf === "5m") {
         const tradesData = await fetchTrades()
         if (!tradesData.error) {
           setTrades(tradesData || [])
@@ -780,6 +782,10 @@ export default function Home() {
 
         {activeTab === "positions" && isPremium && (
           <div>
+            {/* 시간대 표시 */}
+            <div style={{ fontSize: 11, color: TEXT_PRI, marginBottom: 8, fontWeight: 600 }}>
+              📊 {timeframe === "5m" ? "5분" : timeframe === "30m" ? "30분" : timeframe === "1h" ? "1시간" : "일"}봉 포지션
+            </div>
             {/* 진입 중인 포지션 */}
             <div style={{ fontSize: 11, color: TEXT_MUT, marginBottom: 12, fontWeight: 600, letterSpacing: "1px" }}>
               진입 중인 포지션
@@ -798,7 +804,7 @@ export default function Home() {
             
             {/* 완료된 거래 (거래 내역에서 EXIT만) */}
             <div style={{ fontSize: 11, color: TEXT_MUT, marginBottom: 12, fontWeight: 600, letterSpacing: "1px" }}>
-              익절/손절 완료
+              익절/손절 완료 ({timeframe === "5m" ? "5분" : timeframe === "30m" ? "30분" : timeframe === "1h" ? "1시간" : "일"}봉)
             </div>
             {trades.filter(t => t.Status === "EXIT").length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -934,12 +940,22 @@ export default function Home() {
 }
 
 export function NavBar({ navigate, active }) {
+  const BLUE = "#4C6EF5"
+  const TEXT_MUT = "#4a5568"
+  
   const items = [
-    { id: "home",    label: "홈",    path: "/dashboard", icon: "⬡" },
-    { id: "trade",   label: "매매",   path: "/trade",     icon: "⚡" },
-    { id: "pricing", label: "플랜",   path: "/pricing",   icon: "💎" },
-    { id: "account", label: "계정",   path: "/account",   icon: "👤" },
+    { id: "home",    label: "홈",    path: "/dashboard" },
+    { id: "trade",   label: "매매",   path: "/trade" },
+    { id: "pricing", label: "플랜",   path: "/pricing" },
+    { id: "account", label: "계정",   path: "/account" },
   ]
+  
+  const icons = {
+    home: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9l7-6 7 6v8a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke={c} strokeWidth="1.5"/><path d="M7 18v-7h6v7" stroke={c} strokeWidth="1.5"/></svg>,
+    trade: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10h14M13 5l5 5-5 5M7 5L2 10l5 5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    pricing: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><polygon points="10,2 12.9,7 18.5,7.6 14.2,11.7 15.4,17.3 10,14.5 4.6,17.3 5.8,11.7 1.5,7.6 7.1,7" stroke={c} strokeWidth="1.4" fill="none"/></svg>,
+    account: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3" stroke={c} strokeWidth="1.5"/><path d="M3 17c0-2 3-4 7-4s7 2 7 4" stroke={c} strokeWidth="1.5"/></svg>,
+  }
   
   return (
     <div style={{ 
@@ -969,7 +985,7 @@ export function NavBar({ navigate, active }) {
               transition: "all 0.15s",
             }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</span>
+            {icons[item.id](isActive ? BLUE : TEXT_MUT)}
             <span style={{ 
               fontSize: 9, 
               color: isActive ? BLUE_LT : TEXT_MUT, 

@@ -33,13 +33,13 @@ def verify_token(x_api_key: str = Header(default=""), x_tier: str = Header(defau
     if x_api_key and SUPABASE_URL and SUPABASE_SERVICE_KEY:
         try:
             res = requests.get(
-                f"{SUPABASE_URL}/rest/v1/api_keys?api_key=eq.{x_api_key}&is_active=eq.true&select=tier",
+                f"{SUPABASE_URL}/rest/v1/subscriptions?api_key=eq.{x_api_key}&is_active=eq.true&select=plan",
                 headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
                 timeout=3,
             )
             print(f"[DEBUG] Supabase response: status={res.status_code}, data={res.json()}")
             if res.status_code == 200 and res.json():
-                tier = res.json()[0].get("tier", "free")
+                tier = res.json()[0].get("plan", "free")
                 is_premium = tier == "premium"
         except Exception as e:
             print(f"[Auth] Error: {e}")
@@ -618,7 +618,3 @@ def get_log(auth: dict = Depends(require_premium)):
 @app.get("/")
 def root():
     return {"status": "ok", "service": "cresc-scanner-api"}
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)

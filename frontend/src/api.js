@@ -11,14 +11,15 @@ export async function checkAuth() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return { is_premium: false, tier: "free", user: null }
     const { data, error } = await supabase
-      .from('api_keys')
-      .select('tier')
+      .from('subscriptions')
+      .select('plan,is_active')
       .eq('user_id', session.user.id)
+      .eq('is_active', true)
       .maybeSingle()
     if (error || !data) return { is_premium: false, tier: "free", user: session.user, api_key: null }
     return {
-      is_premium: data.tier === "premium",
-      tier: data.tier || "free",
+      is_premium: data.plan === "premium",
+      tier: data.plan || "free",
       user: session.user,
       api_key: null
     }
@@ -35,9 +36,10 @@ async function getAuthHeader() {
 // ============================================================
 // 스캐너 API
 // ============================================================
-export const fetchSignals = async (tf = "5m") => {
+export async function fetchSignals(tf = "5m") {
   try {
-    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`)
+    const headers = await getAuthHeader()
+    const res = await fetch(`${SCANNER_API_URL}/api/data?tf=${tf}`, { headers })
     if (!res.ok) throw new Error("Scanner API error")
     const data = await res.json()
     return { signals: data.signals || [], scan: data.scan || {}, tier: data.tier || "free", error: false }
@@ -136,10 +138,12 @@ export async function saveApiKey(apiKey, secretKey) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error("로그인이 필요합니다")
-    await supabase.from('api_keys').delete().eq('user_id', session.user.id)
+    await supabase.from('api_keys').update({ is_active: false }).eq('user_id', session.user.id)
     const { error } = await supabase.from('api_keys').insert({
       user_id: session.user.id,
+      api_key: apiKey,
       tier: "premium",
+      is_active: true
     })
     if (error) throw error
     return { success: true }
@@ -154,7 +158,7 @@ export async function getTier() {
     if (!session?.user) return "free"
     const { data, error } = await supabase
       .from('api_keys').select('tier')
-      .eq('user_id', session.user.id).maybeSingle()
+      .eq('user_id', session.user.id).eq('is_active', true).maybeSingle()
     if (error || !data) return "free"
     return data.tier || "free"
   } catch { return "free" }
