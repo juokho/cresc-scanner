@@ -936,12 +936,22 @@ export default function Home() {
 }
 
 export function NavBar({ navigate, active }) {
+  const BLUE = "#4C6EF5"
+  const TEXT_MUT = "#4a5568"
+  
   const items = [
-    { id: "home",    label: "홈",    path: "/dashboard", icon: "⬡" },
-    { id: "trade",   label: "매매",   path: "/trade",     icon: "⚡" },
-    { id: "pricing", label: "플랜",   path: "/pricing",   icon: "💎" },
-    { id: "account", label: "계정",   path: "/account",   icon: "👤" },
+    { id: "home",    label: "홈",    path: "/dashboard" },
+    { id: "trade",   label: "매매",   path: "/trade" },
+    { id: "pricing", label: "플랜",   path: "/pricing" },
+    { id: "account", label: "계정",   path: "/account" },
   ]
+  
+  const icons = {
+    home: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9l7-6 7 6v8a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke={c} strokeWidth="1.5"/><path d="M7 18v-7h6v7" stroke={c} strokeWidth="1.5"/></svg>,
+    trade: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10h14M13 5l5 5-5 5M7 5L2 10l5 5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    pricing: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><polygon points="10,2 12.9,7 18.5,7.6 14.2,11.7 15.4,17.3 10,14.5 4.6,17.3 5.8,11.7 1.5,7.6 7.1,7" stroke={c} strokeWidth="1.4" fill="none"/></svg>,
+    account: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3" stroke={c} strokeWidth="1.5"/><path d="M3 17c0-2 3-4 7-4s7 2 7 4" stroke={c} strokeWidth="1.5"/></svg>,
+  }
   
   return (
     <div style={{ 
@@ -971,7 +981,7 @@ export function NavBar({ navigate, active }) {
               transition: "all 0.15s",
             }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</span>
+            {icons[item.id](isActive ? BLUE : TEXT_MUT)}
             <span style={{ 
               fontSize: 9, 
               color: isActive ? BLUE_LT : TEXT_MUT, 
