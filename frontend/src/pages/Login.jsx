@@ -187,7 +187,7 @@ export default function Login() {
       setError(error.message || "회원가입에 실패했어요")
       console.error("Signup error:", error)
     } else {
-      navigate(from)
+      setError("이메일을 확인해 인증 링크를 클릭하면 로그인할 수 있어요 ✓")
     }
     setLoading(false)
   }

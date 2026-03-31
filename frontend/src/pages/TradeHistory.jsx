@@ -15,7 +15,7 @@ export default function TradeHistory() {
       try {
         const data = await fetchTrades()
         if (!data.error) {
-          setTrades(data || [])
+          setTrades(data.trades || [])
         }
       } catch (e) {
         console.error("거래 내역 로드 실패:", e)

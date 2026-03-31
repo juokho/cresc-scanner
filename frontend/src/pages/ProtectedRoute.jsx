@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react"
 import { Navigate } from "react-router-dom"
 import { supabase } from "../supabase"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
 
-/**
- * ProtectedRoute
- * Supabase 세션이 없으면 /로 리다이렉트합니다.
- * 세션 확인 중에는 빈 화면을 보여줘 깜박임을 방지합니다.
- */
+const BG = "#080c10"
+const BLUE = "#3B5BDB"
+
 export default function ProtectedRoute({ children }) {
   const [checking, setChecking] = useState(true)
   const [authed,   setAuthed]   = useState(false)
@@ -19,6 +16,21 @@ export default function ProtectedRoute({ children }) {
     })
   }, [])
 
-  if (checking) return null
+  if (checking) return (
+    <div style={{
+      background: BG, minHeight: "100vh",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column", gap: 16
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: "50%",
+        border: `3px solid ${BLUE}30`,
+        borderTop: `3px solid ${BLUE}`,
+        animation: "spin 0.8s linear infinite"
+      }}/>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+
   return authed ? children : <Navigate to="/" replace />
 }
