@@ -157,6 +157,16 @@ app.add_middleware(
 # [7] API 엔드포인트
 # ============================================================
 
+@app.get("/ip")
+async def get_server_ip():
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get("https://ifconfig.me/ip", timeout=5)
+            return {"server_ip": res.text.strip()}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/status")
 async def get_status(user_id: str = Depends(get_current_user)):
     st = get_user_state(user_id)
