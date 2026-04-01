@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { setApiKey } from "../../api"
-import { StockNavBar } from "../../components/NavBar"
+import { DynamicNavBar } from "../../components/NavBar"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, GOLD } from '../../theme'
 
 function LogoIcon({ size = 26 }) {
@@ -285,7 +285,7 @@ export default function Pricing() {
           스캐너는 투자 참고용이며 모든 투자 결정과<br/>손실은 사용자 본인의 책임입니다
         </div>
       </div>
-      <StockNavBar navigate={navigate} active="pricing" />
+      <DynamicNavBar active="pricing" />
     </div>
   )
 }
