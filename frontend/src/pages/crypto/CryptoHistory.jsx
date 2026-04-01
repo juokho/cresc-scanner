@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
-import { CryptoNavBar } from "../components/NavBar"
-import { supabase } from "../supabase"
+import { CryptoNavBar } from "../../components/NavBar"
+import { supabase } from "../../supabase"
 
 const BLUE_LT = "#4C6EF5"
 const BG      = "#080c10"
