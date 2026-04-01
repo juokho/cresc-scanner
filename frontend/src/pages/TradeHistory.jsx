@@ -48,6 +48,8 @@ export default function TradeHistory() {
       minHeight: "100vh", 
       fontFamily: "'DM Sans', sans-serif", 
       color: TEXT_PRI,
+      maxWidth: 430,
+      margin: "0 auto",
       paddingBottom: 100
     }}>
       {/* 헤더 */}
