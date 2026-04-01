@@ -5,6 +5,17 @@ import { checkAuth } from "../../api"
 import { StockNavBar } from "../../components/NavBar"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER } from '../../theme'
 
+function LogoIcon({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      <rect width="128" height="128" rx="20" fill={BLUE}/>
+      <circle cx="64" cy="64" r="44" stroke="white" strokeWidth="8" fill="none" opacity="0.25"/>
+      <path d="M64 20 A44 44 0 1 0 64 108" stroke="white" strokeWidth="9.2" strokeLinecap="round" fill="none"/>
+      <line x1="82" y1="82" x2="106" y2="110" stroke="white" strokeWidth="9.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "https://quanter-trading-api.onrender.com"
 
 async function getTradingHeaders() {
@@ -114,8 +125,9 @@ export default function Account() {
     <div style={{ background: BG, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI, paddingBottom: 100 }}>
 
       {/* 헤더 */}
-      <div style={{ display: "flex", alignItems: "center", padding: "16px 18px", borderBottom: `0.5px solid ${BORDER}` }}>
-        <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 18px", borderBottom: `0.5px solid ${BORDER}` }}>
+        <LogoIcon size={26}/>
+        <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "1px" }}>
           <span style={{ color: BLUE_LT }}>QUANTER</span>
           <span style={{ color: TEXT_MUT }}>.ACCOUNT</span>
         </span>

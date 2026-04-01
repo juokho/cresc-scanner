@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback } from "react"
 import { StockNavBar } from "../../components/NavBar"
 import { fetchSignals } from "../../api"
-import { BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../../theme'
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../../theme'
+
+function LogoIcon({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      <rect width="128" height="128" rx="20" fill={BLUE}/>
+      <circle cx="64" cy="64" r="44" stroke="white" strokeWidth="8" fill="none" opacity="0.25"/>
+      <path d="M64 20 A44 44 0 1 0 64 108" stroke="white" strokeWidth="9.2" strokeLinecap="round" fill="none"/>
+      <line x1="82" y1="82" x2="106" y2="110" stroke="white" strokeWidth="9.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
 
 const CATEGORIES = [
   { id: "all",       label: "전체"   },
@@ -51,8 +62,12 @@ export default function Monitor() {
   return (
     <div style={{ background: BG, minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", color: TEXT_PRI, paddingBottom: 100 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderBottom:`0.5px solid ${BORDER}` }}>
-        <div style={{ fontFamily:"'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>CRESC</span>.MONITOR
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <LogoIcon size={26}/>
+          <span style={{ fontFamily:"'Orbitron', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "1px" }}>
+            <span style={{ color: BLUE_LT }}>QUANTER</span>
+            <span style={{ color: TEXT_MUT }}>.MONITOR</span>
+          </span>
         </div>
         <div style={{ fontSize: 10, color: TEXT_MUT }}>{lastUpdate && `업데이트: ${lastUpdate}`}</div>
       </div>

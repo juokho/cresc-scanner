@@ -329,10 +329,11 @@ export default function Home() {
         background: BG,
         zIndex: 10
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <LogoIcon size={28} />
-          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <LogoIcon size={26}/>
+          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "1px" }}>
             <span style={{ color: BLUE_LT }}>QUANTER</span>
+            <span style={{ color: TEXT_MUT }}>.SCANNER</span>
           </span>
           {authChecked && (
             <span style={{

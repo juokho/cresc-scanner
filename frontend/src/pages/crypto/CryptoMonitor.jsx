@@ -20,6 +20,18 @@ const SYMBOLS = ["BTC", "ETH", "SOL"]
 const SYM_MAP = { BTC: "BTCUSDT", ETH: "ETHUSDT", SOL: "SOLUSDT" }
 const SYM_COLORS = { BTC: AMBER, ETH: "#627EEA", SOL: "#9945FF" }
 
+function LogoIcon({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      <rect width="128" height="128" rx="20" fill={BLUE}/>
+      <text x="64" y="78" textAnchor="middle" fill="white" fontSize="56" fontWeight="700" fontFamily="'Orbitron', sans-serif">$</text>
+      <circle cx="98" cy="30" r="20" fill="#F7931A"/>
+      <text x="98" y="38" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="'Orbitron', sans-serif">₿</text>
+      <circle cx="64" cy="64" r="50" stroke="white" strokeWidth="2" fill="none" opacity="0.1"/>
+    </svg>
+  )
+}
+
 export default function CryptoMonitor() {
   const [sym,        setSym]        = useState("BTC")
   const [lastUpdate, setLastUpdate] = useState(null)
@@ -41,14 +53,17 @@ export default function CryptoMonitor() {
   const isRange    = data?.regime === "RANGE"
 
   return (
-    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI, paddingBottom: 100 }}>
+    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI, maxWidth: 430, margin: "0 auto", paddingBottom: 100 }}>
       
       {/* 헤더 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: `0.5px solid ${BORDER}` }}>
-        <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 14, fontWeight: 700 }}>
-          <span style={{ color: BLUE_LT }}>QUANTER</span>
-          <span style={{ color: TEXT_MUT }}>.MONITOR</span>
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <LogoIcon size={26}/>
+          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "1px" }}>
+            <span style={{ color: BLUE_LT }}>QUANTER</span>
+            <span style={{ color: TEXT_MUT }}>.MONITOR</span>
+          </span>
+        </div>
         {lastUpdate && <span style={{ fontSize: 9, color: TEXT_HINT }}>{lastUpdate}</span>}
       </div>
 
