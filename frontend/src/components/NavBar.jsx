@@ -28,8 +28,6 @@ export function CryptoNavBar({ active }) {
       icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="5" y="3" width="10" height="14" rx="2" stroke={c} strokeWidth="1.5"/><path d="M8 7h4M8 10h4M8 13h2" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg> },
     { id: "monitor", label: "모니터", path: "/crypto/monitor",
       icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="4" height="8" rx="1" fill={c}/><rect x="8" y="6" width="4" height="12" rx="1" fill={c}/><rect x="14" y="2" width="4" height="16" rx="1" fill={c}/></svg> },
-    { id: "history", label: "내역", path: "/crypto/history",
-      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.5"/><path d="M10 7v3l2 2" stroke={c} strokeWidth="1.5"/></svg> },
     { id: "account", label: "계정", path: "/account",
       icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={c} strokeWidth="1.5"/><path d="M4 17c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg> },
   ]

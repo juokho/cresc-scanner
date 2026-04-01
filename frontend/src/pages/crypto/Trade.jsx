@@ -120,6 +120,7 @@ export default function Trade() {
   const [apiKey,      setApiKey]      = useState("")
   const [secretKey,   setSecretKey]   = useState("")
   const [apiSaving,   setApiSaving]   = useState(false)
+  const [activeTab,   setActiveTab]   = useState("trade") // "trade" | "history"
 
   const {
     botRunning, setBotRunning,
@@ -338,6 +339,29 @@ export default function Trade() {
         </div>
       )}
 
+      {/* 탭 네비게이션 */}
+      <div style={{ display: "flex", borderBottom: `0.5px solid ${BORDER}`, margin: "12px 18px 0" }}>
+        {[
+          { id: "trade", label: "매매" },
+          { id: "history", label: "거래내역" },
+        ].map(tab => (
+          <div
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              flex: 1, padding: "12px 4px", textAlign: "center",
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              color: activeTab === tab.id ? BLUE_LT : TEXT_MUT,
+              borderBottom: `2px solid ${activeTab === tab.id ? BLUE_LT : "transparent"}`,
+              marginBottom: -1, transition: "all .2s"
+            }}
+          >
+            {tab.label}
+          </div>
+        ))}
+      </div>
+
+      {activeTab === "trade" ? (
       <div style={{ flex: 1, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {/* 잔고 / PNL */}
@@ -455,6 +479,9 @@ export default function Trade() {
           </div>
         )}
       </div>
+      ) : (
+      <TradeHistoryTab />
+      )}
 
       {/* 하단 네비 */}
       <NavBar navigate={navigate} active="trade"/>
@@ -494,6 +521,72 @@ export function NavBar({ navigate, active }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// 거래내역 탭 컴포넌트
+function TradeHistoryTab() {
+  const [trades, setTrades] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadTrades = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers = { "Authorization": `Bearer ${session?.access_token || ""}` }
+        const res = await fetch(`${TRADING_API_URL}/trades`, { headers })
+        if (res.ok) {
+          const data = await res.json()
+          setTrades(data.trades || [])
+        }
+      } catch (e) {
+        console.error("거래내역 로드 실패:", e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadTrades()
+  }, [])
+
+  return (
+    <div style={{ flex: 1, padding: "16px 18px" }}>
+      <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "2px", marginBottom: 10 }}>
+        TRADE HISTORY {trades.length > 0 && `(${trades.length})`}
+      </div>
+      
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px", color: TEXT_HINT }}>로딩 중...</div>
+      ) : trades.length === 0 ? (
+        <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 12, padding: "24px", textAlign: "center", color: TEXT_HINT }}>
+          거래 내역이 없습니다
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {trades.map((trade, i) => (
+            <div key={i} style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 12, padding: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 12, fontWeight: 700 }}>{trade.symbol}</span>
+                  <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: trade.side === "LONG" ? "#1a3a2a" : "#3a1a1a", color: trade.side === "LONG" ? GREEN : RED }}>
+                    {trade.side}
+                  </span>
+                </div>
+                <span style={{ fontSize: 11, color: TEXT_MUT }}>{trade.timestamp}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                <span style={{ color: TEXT_MUT }}>진입: ${trade.entry}</span>
+                <span style={{ color: TEXT_MUT }}>청산: ${trade.exit || "-"}</span>
+              </div>
+              {trade.pnl && (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `0.5px solid ${BORDER}`, fontSize: 12, fontWeight: 700, color: trade.pnl.startsWith("+") ? GREEN : RED }}>
+                  PNL: {trade.pnl}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

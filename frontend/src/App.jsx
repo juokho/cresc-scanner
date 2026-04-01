@@ -1,22 +1,22 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import ErrorBoundary  from "./components/ErrorBoundary"
-import ProtectedRoute from "./pages/ProtectedRoute"
+import ProtectedRoute from "./pages/common/ProtectedRoute"
 
 // 공통
-import Landing     from "./pages/Landing"
-import Login       from "./pages/Login"
-import Pricing     from "./pages/Pricing"
-import Account     from "./pages/Account"
-import Onboarding  from "./pages/Onboarding"
+import Landing     from "./pages/common/Landing"
+import Login       from "./pages/common/Login"
+import Pricing     from "./pages/common/Pricing"
+import Account     from "./pages/common/Account"
+import Onboarding  from "./pages/common/Onboarding"
 
 // 미국주식
-import Home         from "./pages/Home"          // 스캐너 (모니터링 기능 포함)
-import TradeHistory from "./pages/TradeHistory"   // 거래내역 (스캐너용)
+import Home         from "./pages/stock/Home"          // 스캐너 (모니터링 기능 포함)
+import TradeHistory from "./pages/stock/TradeHistory"   // 거래내역 (스캐너용)
 
 // 비트코인
-import Trade        from "./pages/Trade"          // 봇제어
-import CryptoMonitor  from "./pages/CryptoMonitor"  // BTC 모니터
-import CryptoHistory  from "./pages/CryptoHistory"  // BTC 거래내역
+import Trade        from "./pages/crypto/Trade"          // 봇제어
+import CryptoMonitor  from "./pages/crypto/CryptoMonitor"  // BTC 모니터
+import CryptoHistory  from "./pages/crypto/CryptoHistory"  // BTC 거래내역
 
 export default function App() {
   return (
