@@ -6,14 +6,12 @@ const BG      = "#080c10"
 const BORDER  = "#1c2530"
 const TEXT_HINT = "#2a3545"
 
-// 미국주식 NavBar
+// 미국주식 NavBar - 스캐너가 모니터링 기능 포함
 export function StockNavBar({ active }) {
   const navigate = useNavigate()
   const items = [
     { id: "scanner", label: "스캐너", path: "/stock",
       icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9l7-6 7 6v8a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke={c} strokeWidth="1.5"/><path d="M7 18v-7h6v7" stroke={c} strokeWidth="1.5"/></svg> },
-    { id: "monitor", label: "모니터", path: "/stock/monitor",
-      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="4" height="8" rx="1" fill={c}/><rect x="8" y="6" width="4" height="12" rx="1" fill={c}/><rect x="14" y="2" width="4" height="16" rx="1" fill={c}/></svg> },
     { id: "history", label: "내역", path: "/stock/history",
       icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.5"/><path d="M10 7v3l2 2" stroke={c} strokeWidth="1.5"/></svg> },
     { id: "account", label: "계정", path: "/account",

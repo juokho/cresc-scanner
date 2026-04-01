@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { CryptoNavBar } from "../components/NavBar"
 import { supabase } from "../supabase"
+import useBotStatus from "../hooks/useBotStatus"
 
 const BLUE    = "#3B5BDB"
 const BLUE_LT = "#4C6EF5"
@@ -14,90 +15,30 @@ const GREEN   = "#22c55e"
 const RED     = "#ef4444"
 const AMBER   = "#f59e0b"
 
-const TRADING_API_URL = import.meta.env.VITE_TRADING_API_URL || "http://localhost:8001"
-
-const SYMBOLS = [
-  { id: "BTCUSDT", label: "BTC", color: AMBER },
-  { id: "ETHUSDT", label: "ETH", color: "#627EEA" },
-  { id: "SOLUSDT", label: "SOL", color: "#9945FF" },
-]
-
-function CIBar({ value }) {
-  // CI: 낮을수록 트렌드, 높을수록 횡보 (기준 38.2)
-  const pct = Math.min(100, Math.max(0, value))
-  const isTrend = value < 38.2
-  const color = isTrend ? GREEN : value < 50 ? AMBER : RED
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 9, color: TEXT_HINT }}>CI (Choppiness)</span>
-        <span style={{ fontSize: 10, color, fontWeight: 700 }}>{value?.toFixed(1) ?? "--"}</span>
-      </div>
-      <div style={{ height: 4, background: BORDER, borderRadius: 2 }}>
-        <div style={{ width: `${pct}%`, height: 4, background: color, borderRadius: 2, transition: "width 0.5s" }}/>
-      </div>
-      <div style={{ fontSize: 8, color: TEXT_HINT, marginTop: 3 }}>
-        {isTrend ? "📈 TREND" : "↔ RANGE"}
-      </div>
-    </div>
-  )
-}
-
-function ZScoreBar({ value }) {
-  // Z-Score: -2~+2 정상, 벗어나면 과매수/과매도
-  const normalized = Math.min(100, Math.max(0, ((value + 3) / 6) * 100))
-  const color = Math.abs(value) > 2 ? RED : Math.abs(value) > 1.5 ? AMBER : GREEN
-  const label = value > 2 ? "과매수" : value < -2 ? "과매도" : "중립"
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 9, color: TEXT_HINT }}>Z-Score</span>
-        <span style={{ fontSize: 10, color, fontWeight: 700 }}>{value?.toFixed(2) ?? "--"}</span>
-      </div>
-      <div style={{ height: 4, background: BORDER, borderRadius: 2, position: "relative" }}>
-        {/* 중앙선 */}
-        <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: 4, background: TEXT_HINT }}/>
-        <div style={{ width: `${normalized}%`, height: 4, background: color, borderRadius: 2, transition: "width 0.5s" }}/>
-      </div>
-      <div style={{ fontSize: 8, color: TEXT_HINT, marginTop: 3 }}>{label}</div>
-    </div>
-  )
-}
+// BTC, ETH, SOL만 표시
+const SYMBOLS = ["BTC", "ETH", "SOL"]
+const SYM_MAP = { BTC: "BTCUSDT", ETH: "ETHUSDT", SOL: "SOLUSDT" }
+const SYM_COLORS = { BTC: AMBER, ETH: "#627EEA", SOL: "#9945FF" }
 
 export default function CryptoMonitor() {
-  const [indicators, setIndicators] = useState({})
+  const [sym,        setSym]        = useState("BTC")
   const [lastUpdate, setLastUpdate] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState("BTCUSDT")
 
-  const fetchData = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers = {
-        "Authorization": `Bearer ${session?.access_token || ""}`,
-        "Content-Type": "application/json"
-      }
-      const res = await fetch(`${TRADING_API_URL}/status`, { headers })
-      if (res.ok) {
-        const json = await res.json()
-        setIndicators(json.indicators || {})
-        setLastUpdate(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
-        setLoading(false)
-      }
-    } catch (e) {
-      console.error("지표 조회 실패:", e)
-      setLoading(false)
-    }
-  }, [])
+  // 공유 훅으로 서버 상태 / 지표 가져오기
+  const { botRunning: connected, indicators } = useBotStatus(3000)
 
+  // 마지막 업데이트 시간 갱신
   useEffect(() => {
-    fetchData()
-    const id = setInterval(fetchData, 5000)
-    return () => clearInterval(id)
-  }, [fetchData])
+    if (Object.keys(indicators).length > 0) {
+      setLastUpdate(new Date().toLocaleTimeString("ko-KR", {
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      }))
+    }
+  }, [indicators])
 
-  const ind = indicators[selected] || {}
-  const sym = SYMBOLS.find(s => s.id === selected)
+  const fullSym    = SYM_MAP[sym]
+  const data       = indicators[fullSym]
+  const isRange    = data?.regime === "RANGE"
 
   return (
     <div style={{ background: BG, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI, paddingBottom: 100 }}>
@@ -111,65 +52,124 @@ export default function CryptoMonitor() {
         {lastUpdate && <span style={{ fontSize: 9, color: TEXT_HINT }}>{lastUpdate}</span>}
       </div>
 
-      {/* 심볼 선택 */}
-      <div style={{ display: "flex", gap: 8, padding: "16px 18px" }}>
-        {SYMBOLS.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setSelected(s.id)}
-            style={{
-              flex: 1, padding: "12px",
-              background: selected === s.id ? `${s.color}20` : SURFACE,
-              border: `1.5px solid ${selected === s.id ? s.color : BORDER}`,
-              borderRadius: 12, cursor: "pointer",
-              fontFamily: "'Orbitron', sans-serif",
-              fontSize: 13, fontWeight: 700,
-              color: selected === s.id ? s.color : TEXT_MUT,
-              transition: "all 0.2s"
-            }}
-          >
-            {s.label}
-          </button>
-        ))}
+      {/* 연결 상태 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px" }}>
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: connected ? GREEN : TEXT_HINT }}/>
+        <span style={{ fontSize: 10, color: connected ? GREEN : TEXT_HINT }}>
+          {connected ? "LIVE" : "서버 연결 대기중"}
+        </span>
       </div>
 
-      {loading ? (
+      {/* 심볼 선택 - 기존 스타일 유지 */}
+      <div style={{ display: "flex", gap: 8, padding: "16px 18px" }}>
+        {SYMBOLS.map(s => {
+          const isSelected = sym === s
+          const color = SYM_COLORS[s]
+          return (
+            <button
+              key={s}
+              onClick={() => setSym(s)}
+              style={{
+                flex: 1, padding: "12px",
+                background: isSelected ? `${color}20` : SURFACE,
+                border: `1.5px solid ${isSelected ? color : BORDER}`,
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: "'Orbitron', sans-serif",
+                fontSize: 13, fontWeight: 700,
+                color: isSelected ? color : TEXT_MUT,
+                transition: "all 0.2s"
+              }}
+            >
+              {s}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 데이터 로딩 중 */}
+      {Object.keys(indicators).length === 0 && (
         <div style={{ textAlign: "center", padding: "60px", color: TEXT_HINT }}>
           <div style={{ fontSize: 12, marginBottom: 8 }}>데이터 로딩 중...</div>
-          <div style={{ fontSize: 10, color: TEXT_HINT }}>Trading API에 연결 중</div>
+          <div style={{ fontSize: 10, color: TEXT_HINT }}>봇 가동 후 최대 5분 내에 첫 지표가 생성됩니다.</div>
         </div>
-      ) : (
+      )}
+
+      {data && (
         <div style={{ padding: "0 18px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* 현재가 */}
+          {/* 현재가 & 국면 */}
           <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 16, padding: "20px" }}>
-            <div style={{ fontSize: 10, color: TEXT_HINT, marginBottom: 8, letterSpacing: "1px" }}>현재가</div>
-            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 28, fontWeight: 800, color: sym?.color }}>
-              ${ind.close?.toLocaleString() ?? "--"}
-            </div>
-            <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 9, color: TEXT_HINT }}>HMA</div>
-                <div style={{ fontSize: 13, color: TEXT_PRI, fontWeight: 600 }}>${ind.hma?.toFixed(2) ?? "--"}</div>
+                <div style={{ fontSize: 9, color: TEXT_HINT, letterSpacing: "2px", marginBottom: 4 }}>현재 국면</div>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700, color: isRange ? TEXT_MUT : BLUE_LT }}>
+                  {isRange ? "📉 RANGE" : "📊 TREND"}
+                </div>
+                <div style={{ fontSize: 10, color: TEXT_MUT, marginTop: 2 }}>
+                  {isRange ? "Z-Score 전략 활성" : "HMA 크로스 전략 활성"}
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 9, color: TEXT_HINT }}>ATR</div>
-                <div style={{ fontSize: 13, color: TEXT_PRI, fontWeight: 600 }}>${ind.atr?.toFixed(2) ?? "--"}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 9, color: TEXT_HINT }}>레짐</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: ind.regime === "TREND" ? GREEN : AMBER }}>
-                  {ind.regime ?? "--"}
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 9, color: TEXT_HINT }}>현재가</div>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 24, fontWeight: 800, color: SYM_COLORS[sym] }}>
+                  ${data.close?.toLocaleString() ?? "--"}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 지표 */}
+          {/* 지표 카드들 */}
           <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={{ fontSize: 10, color: TEXT_HINT, letterSpacing: "1px" }}>기술적 지표</div>
-            <CIBar value={ind.ci} />
-            <ZScoreBar value={ind.z_score} />
+            
+            {/* CI 바 */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: TEXT_HINT }}>CI (Choppiness)</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: data.ci < 38.2 ? GREEN : AMBER }}>
+                  {data.ci?.toFixed(1) ?? "--"}
+                </span>
+              </div>
+              <div style={{ height: 4, background: BORDER, borderRadius: 2 }}>
+                <div style={{ 
+                  width: `${Math.min(data.ci ?? 0, 100)}%`, 
+                  height: 4, background: data.ci < 38.2 ? GREEN : AMBER, 
+                  borderRadius: 2, transition: "width 0.5s" 
+                }}/>
+              </div>
+              <div style={{ fontSize: 8, color: TEXT_HINT, marginTop: 3 }}>
+                {data.ci < 38.2 ? "📈 TREND" : "↔ RANGE"}
+              </div>
+            </div>
+
+            {/* Z-Score 바 */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: TEXT_HINT }}>Z-Score</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: Math.abs(data.z_score ?? 0) >= 2 ? RED : GREEN }}>
+                  {data.z_score?.toFixed(2) ?? "--"}
+                </span>
+              </div>
+              <div style={{ height: 4, background: BORDER, borderRadius: 2, position: "relative" }}>
+                <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: 4, background: TEXT_HINT }}/>
+                <div style={{ 
+                  width: `${Math.min(Math.abs((data.z_score ?? 0) + 3) / 6 * 100, 100)}%`, 
+                  height: 4, background: Math.abs(data.z_score ?? 0) >= 2 ? RED : GREEN, 
+                  borderRadius: 2, transition: "width 0.5s" 
+                }}/>
+              </div>
+              <div style={{ fontSize: 8, color: TEXT_HINT, marginTop: 3 }}>
+                {data.z_score > 2 ? "과매수" : data.z_score < -2 ? "과매도" : "중립"}
+              </div>
+            </div>
+
+            {/* HMA */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 9, color: TEXT_HINT }}>HMA (21)</span>
+              <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: TEXT_PRI }}>
+                ${data.hma?.toLocaleString() ?? "--"}
+              </span>
+            </div>
           </div>
 
           {/* 시그널 해석 */}
@@ -179,18 +179,18 @@ export default function CryptoMonitor() {
               {[
                 {
                   label: "CI 해석",
-                  value: ind.ci < 38.2 ? "강한 추세 진행 중" : ind.ci < 50 ? "추세 약화 중" : "횡보/혼조 구간",
-                  color: ind.ci < 38.2 ? GREEN : ind.ci < 50 ? AMBER : RED
+                  value: data.ci < 38.2 ? "강한 추세 진행 중" : data.ci < 50 ? "추세 약화 중" : "횡보/혼조 구간",
+                  color: data.ci < 38.2 ? GREEN : data.ci < 50 ? AMBER : RED
                 },
                 {
                   label: "Z-Score 해석",
-                  value: ind.z_score > 2 ? "과매수 — 하락 가능성" : ind.z_score < -2 ? "과매도 — 상승 가능성" : "정상 범위",
-                  color: Math.abs(ind.z_score) > 2 ? RED : GREEN
+                  value: data.z_score > 2 ? "과매수 — 하락 가능성" : data.z_score < -2 ? "과매도 — 상승 가능성" : "정상 범위",
+                  color: Math.abs(data.z_score) > 2 ? RED : GREEN
                 },
                 {
                   label: "HMA 대비",
-                  value: ind.close > ind.hma ? "현재가 HMA 위 (강세)" : "현재가 HMA 아래 (약세)",
-                  color: ind.close > ind.hma ? GREEN : RED
+                  value: data.close > data.hma ? "현재가 HMA 위 (강세)" : "현재가 HMA 아래 (약세)",
+                  color: data.close > data.hma ? GREEN : RED
                 },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -201,19 +201,20 @@ export default function CryptoMonitor() {
             </div>
           </div>
 
-          {/* 모든 심볼 요약 */}
+          {/* 전체 심볼 요약 */}
           <div style={{ background: SURFACE, border: `0.5px solid ${BORDER}`, borderRadius: 16, padding: "20px" }}>
             <div style={{ fontSize: 10, color: TEXT_HINT, letterSpacing: "1px", marginBottom: 14 }}>전체 요약</div>
             {SYMBOLS.map(s => {
-              const i = indicators[s.id] || {}
+              const i = indicators[SYM_MAP[s]]
+              const isTrend = i?.regime === "TREND"
               return (
-                <div key={s.id} onClick={() => setSelected(s.id)}
+                <div key={s} onClick={() => setSym(s)}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `0.5px solid ${BORDER}`, cursor: "pointer" }}>
-                  <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: s.color }}>{s.label}</span>
+                  <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: SYM_COLORS[s] }}>{s}</span>
                   <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: TEXT_MUT }}>CI: {i.ci?.toFixed(1) ?? "--"}</span>
-                    <span style={{ fontSize: 11, color: TEXT_MUT }}>Z: {i.z_score?.toFixed(2) ?? "--"}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: i.regime === "TREND" ? GREEN : AMBER }}>{i.regime ?? "--"}</span>
+                    <span style={{ fontSize: 11, color: TEXT_MUT }}>CI: {i?.ci?.toFixed(1) ?? "--"}</span>
+                    <span style={{ fontSize: 11, color: TEXT_MUT }}>Z: {i?.z_score?.toFixed(2) ?? "--"}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isTrend ? GREEN : AMBER }}>{i?.regime ?? "--"}</span>
                   </div>
                 </div>
               )

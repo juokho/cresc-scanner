@@ -10,8 +10,7 @@ import Account     from "./pages/Account"
 import Onboarding  from "./pages/Onboarding"
 
 // 미국주식
-import Home         from "./pages/Home"          // 스캐너
-import Monitor      from "./pages/Monitor"        // 모니터
+import Home         from "./pages/Home"          // 스캐너 (모니터링 기능 포함)
 import TradeHistory from "./pages/TradeHistory"   // 거래내역 (스캐너용)
 
 // 비트코인
@@ -34,9 +33,8 @@ export default function App() {
           <Route path="/account"    element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-          {/* 미국주식 섹션 */}
+          {/* 미국주식 섹션 - 스캐너가 모니터링 기능 포함 */}
           <Route path="/stock"          element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/stock/monitor"  element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
           <Route path="/stock/history"  element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
 
           {/* 비트코인 섹션 */}
@@ -44,11 +42,11 @@ export default function App() {
           <Route path="/crypto/monitor"  element={<ProtectedRoute><CryptoMonitor /></ProtectedRoute>} />
           <Route path="/crypto/history"  element={<ProtectedRoute><CryptoHistory /></ProtectedRoute>} />
 
-          {/* 하위 호환 (기존 링크 유지) */}
+          {/* 하위 호환 (기존 링크 유지) - 모니터는 스캐너로 통합 */}
           <Route path="/scan"      element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/trade"     element={<ProtectedRoute><Trade /></ProtectedRoute>} />
-          <Route path="/monitor"   element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
+          <Route path="/monitor"   element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/history"   element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
