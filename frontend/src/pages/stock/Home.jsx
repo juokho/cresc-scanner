@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { fetchSignals, fetchTrades, checkAuth, getApiKey, getTier, triggerScan } from "../api"
-import { StockNavBar } from "../components/NavBar"
-import { supabase } from "../supabase"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
+import { fetchSignals, fetchTrades, checkAuth, getApiKey, getTier, triggerScan } from "../../api"
+import { StockNavBar } from "../../components/NavBar"
+import { supabase } from "../../supabase"
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../../theme'
 
 function LogoIcon({ size = 26 }) {
   return (

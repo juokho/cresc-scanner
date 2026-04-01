@@ -7,7 +7,6 @@ import Landing     from "./pages/common/Landing"
 import Login       from "./pages/common/Login"
 import Pricing     from "./pages/common/Pricing"
 import Account     from "./pages/common/Account"
-import Onboarding  from "./pages/common/Onboarding"
 
 // 미국주식
 import Home         from "./pages/stock/Home"          // 스캐너 (모니터링 기능 포함)
@@ -31,7 +30,6 @@ export default function App() {
 
           {/* 공통 (로그인 필요) */}
           <Route path="/account"    element={<ProtectedRoute><Account /></ProtectedRoute>} />
-          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
           {/* 미국주식 섹션 - 스캐너가 모니터링 기능 포함 */}
           <Route path="/stock"          element={<ProtectedRoute><Home /></ProtectedRoute>} />

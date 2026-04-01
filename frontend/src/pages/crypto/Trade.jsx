@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { supabase } from "../supabase"
-import useBotStatus from "../hooks/useBotStatus"
+import { supabase } from "../../supabase"
+import useBotStatus from "../../hooks/useBotStatus"
 
 const BLUE     = "#3B5BDB"
 const BLUE_LT  = "#4C6EF5"

@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { setApiKey } from "../api"
-import { StockNavBar } from "../components/NavBar"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, GOLD } from '../theme'
+import { setApiKey } from "../../api"
+import { StockNavBar } from "../../components/NavBar"
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, GOLD } from '../../theme'
 
 const PLANS = [
   {

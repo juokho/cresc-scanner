@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { checkServerStatus, updateBotSettings } from "../api"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
+import { checkServerStatus, updateBotSettings } from "../../api"
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../../theme'
 
 function SliderRow({ label, desc, value, min, max, color, unit, onChange }) {
   const pct = ((value - min) / (max - min)) * 100

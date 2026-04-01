@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
-import { CryptoNavBar } from "../components/NavBar"
-import { supabase } from "../supabase"
-import useBotStatus from "../hooks/useBotStatus"
+import { CryptoNavBar } from "../../components/NavBar"
+import { supabase } from "../../supabase"
+import useBotStatus from "../../hooks/useBotStatus"
 
 const BLUE    = "#3B5BDB"
 const BLUE_LT = "#4C6EF5"

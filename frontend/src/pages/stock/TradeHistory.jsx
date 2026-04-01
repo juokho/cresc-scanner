@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { StockNavBar } from "../components/NavBar"
-import { fetchTrades } from "../api"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
+import { StockNavBar } from "../../components/NavBar"
+import { fetchTrades } from "../../api"
+import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../../theme'
 
 export default function TradeHistory() {
   const [trades, setTrades] = useState([])

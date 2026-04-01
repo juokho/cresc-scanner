@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Navigate } from "react-router-dom"
-import { supabase } from "../supabase"
+import { supabase } from "../../supabase"
 
 const BG = "#080c10"
 const BLUE = "#3B5BDB"
