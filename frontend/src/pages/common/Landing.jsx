@@ -25,7 +25,7 @@ export default function Landing() {
   const [hoveredCard, setHoveredCard] = useState(null)
 
   const handleServiceSelect = async (path, serviceName) => {
-    showLoading(`QUANTER V3 엔진이 ${serviceName} 데이터를 동기화 중입니다...`)
+    showLoading(`QUANTER ENGINE ${serviceName} SCANNING...`)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       setTimeout(() => {
