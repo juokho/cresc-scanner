@@ -102,7 +102,7 @@ export default function Landing() {
         "무료로 시작 가능"
       ],
       buttonText: "스캐너 시작하기",
-      url: "/scan"
+      url: "/stock"
     },
     {
       id: "trading",
@@ -118,7 +118,7 @@ export default function Landing() {
         "다중 심볼 동시 운용"
       ],
       buttonText: "자동매매 시작하기",
-      url: "/trade"
+      url: "/crypto"
     }
   ]
 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
-import { NavBar } from "./Home"
+import { StockNavBar } from "../components/NavBar"
 import { fetchSignals } from "../api"
 import { BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../theme'
 
@@ -21,7 +20,6 @@ export default function Monitor() {
   const [signals, setSignals]     = useState([])
   const [loading, setLoading]     = useState(true)
   const [lastUpdate, setLastUpdate] = useState(null)
-  const navigate = useNavigate()
 
   const pollSignals = useCallback(async () => {
     try {
@@ -129,7 +127,7 @@ export default function Monitor() {
           </div>
         )}
       </div>
-      <NavBar navigate={navigate} active="monitor" />
+      <StockNavBar active="monitor" />
     </div>
   )
 }

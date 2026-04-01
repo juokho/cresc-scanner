@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { NavBar } from "./Home"
 import { supabase } from "../supabase"
 import { checkAuth } from "../api"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER } from '../theme'
@@ -269,7 +268,6 @@ export default function Account() {
         )}
       </div>
 
-      <NavBar navigate={navigate} active="account" />
     </div>
   )
 }

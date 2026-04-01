@@ -19,28 +19,45 @@ export default function useBotStatus() {
   const [unrealized,      setUnrealized]      = useState("--")
   const [positions,       setPositions]       = useState([])
   const [selectedSymbols, setSelectedSymbols] = useState(["BTCUSDT", "ETHUSDT", "SOLUSDT"])
-  const [hasApiKey,       setHasApiKey]       = useState(false)  // Binance API 키 등록 여부
-  const pollRef = useRef(null)
+  const [hasApiKey,       setHasApiKey]       = useState(false)
+  
+  // 재연결 관련
+  const pollRef       = useRef(null)
+  const retryCount    = useRef(0)
+  const wasConnected  = useRef(false)  // 이전에 연결됐었는지 기억
 
   const poll = useCallback(async () => {
     try {
       const headers = await getTradingHeaders()
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)  // 8초 타임아웃
 
-      // 1. 서버 상태 + 봇 실행 여부
-      const res = await fetch(`${TRADING_API_URL}/status`, { headers })
+      const res = await fetch(`${TRADING_API_URL}/status`, { 
+        headers, 
+        signal: controller.signal 
+      })
+      clearTimeout(timeout)
+
       if (!res.ok) {
-        setConnected(false)
-        setServerMsg("서버 연결 안됨")
-        return
+        throw new Error(`HTTP ${res.status}`)
       }
+
       const status = await res.json()
+      
+      // 재연결 성공
+      if (!wasConnected.current && retryCount.current > 0) {
+        console.log(`[useBotStatus] 재연결 성공 (${retryCount.current}번 시도 후)`)
+      }
+      retryCount.current = 0
+      wasConnected.current = true
+
       setConnected(true)
       setBotRunning(status.bot_running || false)
       setSelectedSymbols(status.selected_symbols || ["BTCUSDT", "ETHUSDT", "SOLUSDT"])
       setServerMsg(status.bot_running ? "자동매매 실행 중" : "대기 중")
       setHasApiKey(status.has_api_key || false)
 
-      // 3. 잔고
+      // 잔고
       const balRes = await fetch(`${TRADING_API_URL}/balance`, { headers })
       if (balRes.ok) {
         const balData = await balRes.json()
@@ -48,7 +65,7 @@ export default function useBotStatus() {
         setBalance(bal > 0 ? `$${bal.toFixed(2)}` : "--")
       }
 
-      // 4. 포지션
+      // 포지션
       const posRes = await fetch(`${TRADING_API_URL}/positions`, { headers })
       if (posRes.ok) {
         const posData = await posRes.json()
@@ -61,15 +78,25 @@ export default function useBotStatus() {
           : `-$${Math.abs(totalPnl).toFixed(2)}`
         )
       }
+
     } catch (error) {
-      console.error("Poll error:", error)
-      setConnected(false)
-      setServerMsg("서버 연결 안됨")
+      retryCount.current += 1
+      
+      // Render 슬립에서 깨어나는 중 - 봇 상태는 유지
+      if (retryCount.current <= 3) {
+        setServerMsg(`재연결 중... (${retryCount.current}/3)`)
+      } else {
+        setConnected(false)
+        setServerMsg("서버 연결 안됨")
+        // 봇 상태는 건드리지 않음 - 서버가 다시 살아나면 /status로 실제 상태 확인
+      }
+      console.error("Poll error:", error.message)
     }
   }, [])
 
   useEffect(() => {
     poll()
+    // 5초마다 폴링 (Render 무료 플랜 슬립 방지 겸)
     pollRef.current = setInterval(poll, 5000)
     return () => clearInterval(pollRef.current)
   }, [poll])

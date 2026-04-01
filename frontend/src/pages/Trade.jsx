@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../supabase"
 import useBotStatus from "../hooks/useBotStatus"
+import { CryptoNavBar } from "../components/NavBar"
 
 const BLUE     = "#3B5BDB"
 const BLUE_LT  = "#4C6EF5"
@@ -505,43 +506,7 @@ export default function Trade() {
       </div>
 
       {/* 하단 네비 */}
-      <NavBar navigate={navigate} active="trade"/>
-    </div>
-  )
-}
-
-export function NavBar({ navigate, active }) {
-  const items = [
-    { id: "home",    label: "스캐너", path: "/dashboard" },
-    { id: "trade",   label: "매매",   path: "/trade" },
-    { id: "pricing", label: "플랜",   path: "/pricing" },
-    { id: "account", label: "계정",   path: "/account" },
-  ]
-  const icons = {
-    home:    (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9l7-6 7 6v8a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke={c} strokeWidth="1.5"/><path d="M7 18v-7h6v7" stroke={c} strokeWidth="1.5"/></svg>,
-    trade:   (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10h14M13 5l5 5-5 5M7 5L2 10l5 5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-    pricing: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><polygon points="10,2 12.9,7 18.5,7.6 14.2,11.7 15.4,17.3 10,14.5 4.6,17.3 5.8,11.7 1.5,7.6 7.1,7" stroke={c} strokeWidth="1.4" fill="none"/></svg>,
-    account: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={c} strokeWidth="1.5"/><path d="M4 17c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  }
-  return (
-    <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0,
-      display: "flex", justifyContent: "space-around",
-      padding: "10px 8px 22px", borderTop: `0.5px solid ${BORDER}`,
-      background: BG, maxWidth: 430, margin: "0 auto", zIndex: 100
-    }}>
-      {items.map(item => {
-        const isActive = active === item.id
-        const color = isActive ? BLUE_LT : TEXT_HINT
-        return (
-          <div key={item.id} onClick={() => navigate(item.path)}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", padding: "6px 16px", borderRadius: 10, background: isActive ? `${BLUE}20` : "transparent", userSelect: "none" }}
-          >
-            {icons[item.id](color)}
-            <span style={{ fontSize: 9, color, fontWeight: isActive ? 700 : 400, letterSpacing: "0.3px" }}>{item.label}</span>
-          </div>
-        )
-      })}
+      <CryptoNavBar active="bot" />
     </div>
   )
 }

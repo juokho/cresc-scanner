@@ -1,16 +1,23 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
-import Home         from "./pages/Home"
-import Monitor      from "./pages/Monitor"
-import TradeHistory from "./pages/TradeHistory"
-import Pricing      from "./pages/Pricing"
-import Account      from "./pages/Account"
-import Login        from "./pages/Login"
-import Landing      from "./pages/Landing"
-import Trade        from "./pages/Trade"
-import Onboarding   from "./pages/Onboarding"
-import Settings     from "./pages/Settings"
-import ErrorBoundary from "./components/ErrorBoundary"
+import ErrorBoundary  from "./components/ErrorBoundary"
 import ProtectedRoute from "./pages/ProtectedRoute"
+
+// 공통
+import Landing     from "./pages/Landing"
+import Login       from "./pages/Login"
+import Pricing     from "./pages/Pricing"
+import Account     from "./pages/Account"
+import Onboarding  from "./pages/Onboarding"
+
+// 미국주식
+import Home         from "./pages/Home"          // 스캐너
+import Monitor      from "./pages/Monitor"        // 모니터
+import TradeHistory from "./pages/TradeHistory"   // 거래내역 (스캐너용)
+
+// 비트코인
+import Trade        from "./pages/Trade"          // 봇제어
+import CryptoMonitor  from "./pages/CryptoMonitor"  // BTC 모니터
+import CryptoHistory  from "./pages/CryptoHistory"  // BTC 거래내역
 
 export default function App() {
   return (
@@ -18,21 +25,31 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* 퍼블릭 */}
-          <Route path="/"         element={<Landing />} />
-          <Route path="/landing"  element={<Landing />} />
-          <Route path="/login"    element={<Login />} />
-          <Route path="/signup"   element={<Login />} />
-          <Route path="/pricing"  element={<Pricing />} />
+          <Route path="/"        element={<Landing />} />
+          <Route path="/login"   element={<Login />} />
+          <Route path="/signup"  element={<Login />} />
+          <Route path="/pricing" element={<Pricing />} />
 
-          {/* 로그인 필요 */}
-          <Route path="/scan"       element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/dashboard"  element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/trade"      element={<ProtectedRoute><Trade /></ProtectedRoute>} />
-          <Route path="/monitor"    element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
-          <Route path="/history"    element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
+          {/* 공통 (로그인 필요) */}
           <Route path="/account"    element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-          <Route path="/settings"   element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+          {/* 미국주식 섹션 */}
+          <Route path="/stock"          element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/stock/monitor"  element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
+          <Route path="/stock/history"  element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
+
+          {/* 비트코인 섹션 */}
+          <Route path="/crypto"          element={<ProtectedRoute><Trade /></ProtectedRoute>} />
+          <Route path="/crypto/monitor"  element={<ProtectedRoute><CryptoMonitor /></ProtectedRoute>} />
+          <Route path="/crypto/history"  element={<ProtectedRoute><CryptoHistory /></ProtectedRoute>} />
+
+          {/* 하위 호환 (기존 링크 유지) */}
+          <Route path="/scan"      element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/trade"     element={<ProtectedRoute><Trade /></ProtectedRoute>} />
+          <Route path="/monitor"   element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
+          <Route path="/history"   element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
