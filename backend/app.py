@@ -635,6 +635,11 @@ def close_all_positions(auth: dict = Depends(verify_token)):
 def root():
     return {"status": "ok", "service": "cresc-scanner-api"}
 
+@app.get("/ping")
+def ping():
+    """서버 생존 확인용 (UptimeRobot 등에서 호출)"""
+    return {"status": "alive", "service": "scanner-api", "timestamp": datetime.now().isoformat()}
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)

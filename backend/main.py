@@ -203,6 +203,11 @@ async def get_server_ip():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/ping")
+async def ping():
+    """서버 생존 확인용 (UptimeRobot 등에서 호출)"""
+    return {"status": "alive", "service": "trading-api", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 @app.get("/status")
 async def get_status(user_id: str = Depends(get_current_user)):
     st = get_user_state(user_id)
