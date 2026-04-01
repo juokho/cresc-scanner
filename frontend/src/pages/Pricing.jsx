@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { setApiKey } from "../api"
-import { NavBar } from "./Home"
+import { StockNavBar } from "../components/NavBar"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, GOLD } from '../theme'
 
 const PLANS = [
@@ -270,7 +270,7 @@ export default function Pricing() {
           스캐너는 투자 참고용이며 모든 투자 결정과<br/>손실은 사용자 본인의 책임입니다
         </div>
       </div>
-      <NavBar navigate={navigate} active="pricing" />
+      <StockNavBar navigate={navigate} active="pricing" />
     </div>
   )
 }
