@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
-import { StockNavBar } from "../components/NavBar"
-import { fetchSignals } from "../api"
-import { BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../theme'
+import { StockNavBar } from "../../components/NavBar"
+import { fetchSignals } from "../../api"
+import { BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../../theme'
 
 const CATEGORIES = [
   { id: "all",       label: "전체"   },
