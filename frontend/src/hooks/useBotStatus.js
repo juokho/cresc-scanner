@@ -20,6 +20,7 @@ export default function useBotStatus() {
   const [positions,       setPositions]       = useState([])
   const [selectedSymbols, setSelectedSymbols] = useState(["BTCUSDT", "ETHUSDT", "SOLUSDT"])
   const [hasApiKey,       setHasApiKey]       = useState(false)
+  const [indicators,      setIndicators]      = useState({})
   
   // 재연결 관련
   const pollRef       = useRef(null)
@@ -65,7 +66,12 @@ export default function useBotStatus() {
         setBalance(bal > 0 ? `$${bal.toFixed(2)}` : "--")
       }
 
-      // 포지션
+      // 지표 (모니터용)
+      const indRes = await fetch(`${TRADING_API_URL}/indicators`, { headers })
+      if (indRes.ok) {
+        const indData = await indRes.json()
+        setIndicators(indData.indicators || {})
+      }
       const posRes = await fetch(`${TRADING_API_URL}/positions`, { headers })
       if (posRes.ok) {
         const posData = await posRes.json()
@@ -110,6 +116,7 @@ export default function useBotStatus() {
     positions,
     selectedSymbols, setSelectedSymbols,
     hasApiKey,
+    indicators,
     poll,
   }
 }
