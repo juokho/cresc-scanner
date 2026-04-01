@@ -69,7 +69,7 @@ export default function Landing() {
 
         <p style={{ fontSize: "13px", color: SILVER, lineHeight: 1.5, maxWidth: "260px", margin: "0 auto 24px" }}>
           차트 앞에서 밤새지 마세요.<br/>
-          V3 엔진이 시장을 실시간 스캔하여<br/>
+          QUANTER 엔진이 시장을 실시간 스캔하여<br/>
           <span style={{ color: TEXT_PRI, fontWeight: 700 }}>승률 높은 타점</span>만 골라냅니다.
         </p>
 

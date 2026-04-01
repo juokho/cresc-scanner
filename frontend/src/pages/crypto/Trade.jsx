@@ -400,22 +400,9 @@ export default function Trade() {
                     color: on ? "#fff" : TEXT_MUT,
                     cursor: "pointer", transition: "all 0.2s",
                     userSelect: "none",
-                    position: "relative",
-                    boxShadow: on ? `0 0 12px ${BLUE}60` : "none"
+                    boxShadow: on ? `0 0 20px ${BLUE}80, 0 0 40px ${BLUE}40` : "none"
                   }}
                 >
-                  {/* 선택 표시 체크 아이콘 */}
-                  {on && (
-                    <div style={{
-                      position: "absolute", top: 4, right: 4,
-                      width: 12, height: 12, borderRadius: "50%",
-                      background: "#fff", display: "flex", alignItems: "center", justifyContent: "center"
-                    }}>
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                        <path d="M1 4L3 6L7 2" stroke={BLUE} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  )}
                   {sym.replace("USDT", "")}
                 </div>
               )
