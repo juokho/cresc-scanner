@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { supabase } from "../supabase"
-import { NavBar } from "./Home"
+import { NavBar } from "../components/NavBar"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../theme'
 
 function LogoIcon({ size = 44 }) {
