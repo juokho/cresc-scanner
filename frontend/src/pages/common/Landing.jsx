@@ -124,7 +124,7 @@ export default function Landing() {
 
   const handleServiceSelect = async (service) => {
     setSelectedService(service.id)
-    const { supabase } = await import("../supabase")
+    const { supabase } = await import("../../supabase")
     const { data: { session } } = await supabase.auth.getSession()
     setTimeout(() => {
       if (session) {
