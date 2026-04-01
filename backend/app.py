@@ -70,7 +70,7 @@ scan_state     = {"5m": {"running": False, "progress": 0, "current": "", "last_s
                   "30m": {"running": False, "progress": 0, "current": "", "last_scan": ""},
                   "1h":  {"running": False, "progress": 0, "current": "", "last_scan": ""},
                   "1d":  {"running": False, "progress": 0, "current": "", "last_scan": ""}}
-data_lock      = threading.Lock()
+data_lock      = threading.RLock()
 
 # ============================================================
 # Supabase 포지션 저장/로드 함수
@@ -356,9 +356,6 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
         # 포지션 관리 - 모든 시간대별로 분리
         with data_lock:
             tf_key = timeframe
-          # 포지션 관리 - 모든 시간대별로 적용
-        with data_lock:
-            tf_key = timeframe
             tf_positions = trade_history[tf_key]
             
             # DEBUG: 시그널 상태 로깅
@@ -445,7 +442,7 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
 # ── 스캔 루프 ─────────────────────────────────────────────────
 def scan_loop_5m():
     """5분봉 자동 스캔 - 베이스 티커만"""
-    is_premium_server = bool(PREMIUM_API_KEYS)
+    is_premium_server = True  # Supabase에 항상 저장
     while True:
         scan_state["5m"]["running"], scan_state["5m"]["progress"] = True, 0
         tickers = list(LEVERAGE_MAP.items())
@@ -484,7 +481,7 @@ def scan_timeframe(timeframe: str, auth_token: str = None):
     if timeframe not in TIMEFRAME_CONFIG:
         return {"error": "Invalid timeframe"}
     
-    is_premium_server = bool(PREMIUM_API_KEYS)
+    is_premium_server = True  # Supabase에 항상 저장
     config = TIMEFRAME_CONFIG[timeframe]
     
     scan_state[timeframe]["running"], scan_state[timeframe]["progress"] = True, 0
