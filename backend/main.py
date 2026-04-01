@@ -458,6 +458,49 @@ async def save_api_key(req: ApiKeyRequest, user_id: str = Depends(get_current_us
     ).execute()
     return {"message": "API 키가 저장되었습니다"}
 
+@app.post("/positions/close-all")
+async def close_all_positions(user_id: str = Depends(get_current_user)):
+    """모든 포지션 시장가 청산 (Panic Sell)"""
+    state = get_user_state(user_id)
+    client = state.get("bn_client")
+    if not client:
+        raise HTTPException(400, "바이낸스 클라이언트가 초기화되지 않았습니다")
+    
+    try:
+        positions = client.futures_position_information()
+        closed = []
+        for p in positions:
+            amt = float(p.get("positionAmt", 0))
+            if abs(amt) > 0:
+                symbol = p["symbol"]
+                side = "SELL" if amt > 0 else "BUY"
+                try:
+                    order = client.futures_create_order(
+                        symbol=symbol,
+                        side=side,
+                        type="MARKET",
+                        quantity=abs(amt)
+                    )
+                    closed.append({"symbol": symbol, "side": side, "qty": abs(amt)})
+                    add_execution_log(user_id, {
+                        "type": "PANIC_SELL",
+                        "symbol": symbol,
+                        "side": side,
+                        "qty": abs(amt),
+                        "order_id": order.get("orderId")
+                    })
+                except Exception as e:
+                    log.error(f"[panic] {symbol} 청산 실패: {e}")
+        return {"message": f"{len(closed)}개 포지션 청산 완료", "closed": closed}
+    except Exception as e:
+        raise HTTPException(500, f"청산 실패: {e}")
+
+@app.get("/trades")
+async def get_trades(user_id: str = Depends(get_current_user)):
+    """거래 내역 조회 (execution_logs 기반)"""
+    logs = user_exec_logs.get(user_id, [])
+    return {"trades": logs}
+
 if __name__ == "__main__":
     import uvicorn
     port = int(__import__("os").getenv("PORT", 8000))
