@@ -14,7 +14,7 @@ from config import (
 )
 from state import (
     _state_lock, get_user_state,
-    user_states,  # <--- 이 부분이 추가되어 루프 에러를 방지합니다
+    user_states,
     user_last_bar_ts, user_indicators, user_position_meta,
     add_execution_log,
 )
@@ -176,6 +176,8 @@ def execute_binance_order(
         bn_client.futures_create_order(
             symbol=symbol, side=order_side, type="MARKET", quantity=qty
         )
+        
+        # 진입 시 High-Water Mark (hwm) 초기화
         user_position_meta[user_id][symbol] = {
             "entry": price, "atr": atr_val, "side": side, "hwm": price
         }
@@ -186,7 +188,7 @@ def execute_binance_order(
         log.error(f"주문 실행 오류 {symbol}: {e}", exc_info=True)
 
 # ============================================================
-# 백그라운드 루프
+# 백그라운드 루프 (포지션 청산 및 트레일링 스탑)
 # ============================================================
 async def monitor_loop() -> None:
     import asyncio
@@ -243,21 +245,64 @@ async def position_cleanup_loop() -> None:
                         entry   = meta["entry"]
                         atr     = meta["atr"]
                         side    = meta["side"]
-                        sl_mult = state["sl_atr_mult"]
-                        tp_mult = state["tp_atr_mult"]
+                        hwm     = meta["hwm"]
+
+                        # state에 저장된 설정값 (없을 시 PineScript V5 기본값 적용)
+                        sl_mult = state.get("sl_atr_mult", 1.5)
+                        tp_mult = state.get("tp_atr_mult", 3.5)
+                        trail_pts_mult = state.get("trail_points", 80.0)
+                        trail_off_mult = state.get("trail_offset", 10.0)
+
+                        # 바이낸스 심볼의 tickSize 추출 (PineScript의 Tick 계산 보정용)
+                        filters = state["bn_symbols"][symbol]["filters"]
+                        tick_size = float(next(f["tickSize"] for f in filters if f["filterType"] == "PRICE_FILTER"))
+
+                        # 절대 가격 기준으로 환산된 트레일링 거리
+                        trail_activation_dist = atr * trail_pts_mult * tick_size
+                        trail_offset_dist = atr * trail_off_mult * tick_size
 
                         should_close, reason = False, ""
-                        if state["sl_mode"] == "atr":
+                        
+                        if state.get("sl_mode", "atr") == "atr":
                             if side == "LONG":
-                                if mark <= entry - atr * sl_mult:
-                                    should_close, reason = True, "SL Hit"
-                                elif mark >= entry + atr * tp_mult:
-                                    should_close, reason = True, "TP Hit"
-                            else:
-                                if mark >= entry + atr * sl_mult:
-                                    should_close, reason = True, "SL Hit"
-                                elif mark <= entry - atr * tp_mult:
-                                    should_close, reason = True, "TP Hit"
+                                # HWM (최고점) 갱신
+                                if mark > hwm:
+                                    hwm = mark
+                                    user_position_meta[user_id][symbol]["hwm"] = hwm
+
+                                # 1. 트레일링 스탑 평가
+                                activation_price = entry + trail_activation_dist
+                                if hwm >= activation_price:
+                                    trailing_stop_price = hwm - trail_offset_dist
+                                    if mark <= trailing_stop_price:
+                                        should_close, reason = True, "Trailing Stop Hit"
+
+                                # 2. 고정 SL / TP 평가 (트레일링이 발동/체결되지 않은 경우)
+                                if not should_close:
+                                    if mark <= entry - (atr * sl_mult):
+                                        should_close, reason = True, "SL Hit"
+                                    elif mark >= entry + (atr * tp_mult):
+                                        should_close, reason = True, "TP Hit"
+
+                            elif side == "SHORT":
+                                # HWM (최저점) 갱신
+                                if mark < hwm:
+                                    hwm = mark
+                                    user_position_meta[user_id][symbol]["hwm"] = hwm
+
+                                # 1. 트레일링 스탑 평가
+                                activation_price = entry - trail_activation_dist
+                                if hwm <= activation_price:
+                                    trailing_stop_price = hwm + trail_offset_dist
+                                    if mark >= trailing_stop_price:
+                                        should_close, reason = True, "Trailing Stop Hit"
+
+                                # 2. 고정 SL / TP 평가
+                                if not should_close:
+                                    if mark >= entry + (atr * sl_mult):
+                                        should_close, reason = True, "SL Hit"
+                                    elif mark <= entry - (atr * tp_mult):
+                                        should_close, reason = True, "TP Hit"
 
                         if should_close:
                             close_side = "SELL" if amt > 0 else "BUY"
@@ -279,3 +324,55 @@ async def position_cleanup_loop() -> None:
         except Exception as e:
             log.error(f"position_cleanup_loop 오류: {e}", exc_info=True)
         await asyncio.sleep(1)
+
+# ============================================================
+# 전체 포지션 청산 (Panic Sell)
+# ============================================================
+def close_all_positions_for_user(user_id: str) -> dict:
+    """
+    사용자의 모든 포지션을 시장가로 청산합니다.
+    Panic Sell 버튼에서 호출됩니다.
+    """
+    state = get_user_state(user_id)
+    bn_client = state.get("bn_client")
+    
+    if not bn_client:
+        return {"success": False, "error": "Binance 클라이언트 없음"}
+    
+    results = []
+    try:
+        pos_info = bn_client.futures_position_information()
+        
+        for p in pos_info:
+            amt = float(p.get("positionAmt", 0))
+            symbol = p["symbol"]
+            
+            if amt == 0:
+                continue
+                
+            try:
+                close_side = "SELL" if amt > 0 else "BUY"
+                bn_client.futures_create_order(
+                    symbol=symbol, side=close_side,
+                    type="MARKET", quantity=abs(amt), reduceOnly=True,
+                )
+                mark = float(p.get("markPrice", 0))
+                add_execution_log(user_id, symbol, "EXIT", "SUCCESS", "Panic Sell", mark)
+                results.append({"symbol": symbol, "side": close_side, "amount": abs(amt), "status": "success"})
+                
+                # 포지션 메타데이터 정리
+                user_position_meta[user_id].pop(symbol, None)
+                
+            except Exception as e:
+                log.error(f"{symbol} 청산 실패: {e}")
+                results.append({"symbol": symbol, "status": "failed", "error": str(e)})
+        
+        return {
+            "success": True, 
+            "closed_count": len([r for r in results if r["status"] == "success"]),
+            "results": results
+        }
+        
+    except Exception as e:
+        log.error(f"전체 청산 오류 ({user_id}): {e}", exc_info=True)
+        return {"success": False, "error": str(e)}

@@ -454,28 +454,38 @@ export default function Trade() {
           </div>
         </div>
 
-        {/* 패닉 버튼 */}
-        {botRunning && (
+        {/* 패닉 셀 - 전체 포지션 청산 */}
+        {positions.length > 0 && (
           <div
             onClick={async () => {
-              if (!window.confirm("봇을 정지할까요? (포지션은 유지됩니다)")) return
+              if (!window.confirm("⚠️ 모든 포지션을 시장가로 청산할까요?\n\n이 작업은 되돌릴 수 없습니다.")) return
+              setTogLoading(true)
               try {
                 const headers = await getTradingHeaders()
-                await fetch(`${TRADING_API_URL}/bot/stop`, { method: "POST", headers })
-                setBotRunning(false)
-                setServerMsg("봇 정지 완료")
-                await poll()
-              } catch {}
+                const res = await fetch(`${TRADING_API_URL}/positions/close-all`, {
+                  method: "POST", headers
+                })
+                if (res.ok) {
+                  setServerMsg("전체 포지션 청산 완료")
+                  await poll()
+                } else {
+                  setErrorMsg("청산 실패 - 수동으로 확인해주세요")
+                }
+              } catch {
+                setErrorMsg("청산 요청 오류")
+              } finally {
+                setTogLoading(false)
+              }
             }}
             style={{
-              background: "#0d0606", border: "0.5px solid #2a1010", borderRadius: 12,
+              background: "#0d0606", border: `1px solid ${RED}`, borderRadius: 12,
               padding: "18px", fontFamily: "'Orbitron', sans-serif",
               fontSize: 11, fontWeight: 700, color: RED,
               letterSpacing: "2px", textAlign: "center",
               cursor: "pointer", userSelect: "none"
             }}
           >
-            PANIC STOP — 봇 정지
+            PANIC SELL — 전체 청산
           </div>
         )}
       </div>

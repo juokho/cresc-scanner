@@ -59,6 +59,7 @@ def require_premium(auth: dict = Depends(verify_token)):
     return auth
 
 from tickers import LEVERAGE_MAP
+from trading import close_all_positions_for_user
 
 # ── 공유 상태 ─────────────────────────────────────────────────
 ticker_data    = {"5m": {}, "30m": {}, "1h": {}, "1d": {}}
@@ -614,6 +615,21 @@ def get_log(auth: dict = Depends(require_premium)):
         return JSONResponse(pd.read_csv(LOG_FILE, encoding="utf-8-sig").tail(100).iloc[::-1].to_dict(orient="records"))
     except Exception:
         return JSONResponse([])
+
+@app.post("/positions/close-all")
+def close_all_positions(auth: dict = Depends(verify_token)):
+    """모든 포지션 시장가 청산 (Panic Sell)"""
+    # TODO: user_id 추출 로직 필요 (auth에서 user 식별)
+    # 현재는 auth["token"]을 user_id로 사용
+    user_id = auth.get("token", "unknown")
+    if user_id == "unknown":
+        raise HTTPException(status_code=400, detail="User identification required")
+    
+    result = close_all_positions_for_user(user_id)
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result.get("error", "청산 실패"))
+    
+    return JSONResponse(result)
 
 @app.get("/")
 def root():
