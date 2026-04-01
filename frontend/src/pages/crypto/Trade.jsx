@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabase"
 import useBotStatus from "../../hooks/useBotStatus"
+import { CryptoNavBar } from "../../components/NavBar"
 
 const BLUE     = "#3B5BDB"
 const BLUE_LT  = "#4C6EF5"
@@ -389,14 +390,28 @@ export default function Trade() {
                   onClick={() => toggleSymbol(sym)}
                   style={{
                     flex: 1, padding: "14px 0", borderRadius: 12, textAlign: "center",
-                    fontSize: 12, fontWeight: 700,
+                    fontSize: 12, fontWeight: on ? 800 : 600,
                     background: on ? BLUE : SURFACE,
-                    border: `1.5px solid ${on ? BLUE_LT : BORDER}`,
+                    border: `2px solid ${on ? BLUE_LT : BORDER}`,
                     color: on ? "#fff" : TEXT_MUT,
                     cursor: "pointer", transition: "all 0.2s",
-                    userSelect: "none"
+                    userSelect: "none",
+                    position: "relative",
+                    boxShadow: on ? `0 0 12px ${BLUE}60` : "none"
                   }}
                 >
+                  {/* 선택 표시 체크 아이콘 */}
+                  {on && (
+                    <div style={{
+                      position: "absolute", top: 4, right: 4,
+                      width: 12, height: 12, borderRadius: "50%",
+                      background: "#fff", display: "flex", alignItems: "center", justifyContent: "center"
+                    }}>
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <path d="M1 4L3 6L7 2" stroke={BLUE} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  )}
                   {sym.replace("USDT", "")}
                 </div>
               )
@@ -494,42 +509,7 @@ export default function Trade() {
       )}
 
       {/* 하단 네비 */}
-      <NavBar navigate={navigate} active="trade"/>
-    </div>
-  )
-}
-
-export function NavBar({ navigate, active }) {
-  const items = [
-    { id: "bot",     label: "봇제어", path: "/crypto",
-      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="5" y="3" width="10" height="14" rx="2" stroke={c} strokeWidth="1.5"/><path d="M8 7h4M8 10h4M8 13h2" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg> },
-    { id: "monitor", label: "모니터", path: "/crypto/monitor",
-      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="4" height="8" rx="1" fill={c}/><rect x="8" y="6" width="4" height="12" rx="1" fill={c}/><rect x="14" y="2" width="4" height="16" rx="1" fill={c}/></svg> },
-    { id: "account", label: "계정",   path: "/account",
-      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={c} strokeWidth="1.5"/><path d="M4 17c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg> },
-    { id: "switch",  label: "미국주식", path: "/stock",
-      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 4L3 8M3 8l4 4M3 8h14M13 16l4-4m0 0l-4-4m4 4H3" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  ]
-  return (
-    <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0,
-      display: "flex", justifyContent: "space-around",
-      padding: "10px 8px 22px", borderTop: `0.5px solid ${BORDER}`,
-      background: BG, maxWidth: 430, margin: "0 auto", zIndex: 100
-    }}>
-      {items.map(item => {
-        const isActive = active === item.id
-        const isSwitch = item.id === "switch"
-        const color = isActive ? BLUE_LT : isSwitch ? AMBER : TEXT_HINT
-        return (
-          <div key={item.id} onClick={() => navigate(item.path)}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", padding: "6px 16px", borderRadius: 10, background: isActive ? `${BLUE}20` : isSwitch ? `${AMBER}30` : "transparent", border: isSwitch ? `1px solid ${AMBER}` : "none", userSelect: "none" }}
-          >
-            {item.icon(color)}
-            <span style={{ fontSize: 9, color, fontWeight: isActive || isSwitch ? 700 : 400, letterSpacing: "0.3px" }}>{item.label}</span>
-          </div>
-        )
-      })}
+      <CryptoNavBar active="bot"/>
     </div>
   )
 }

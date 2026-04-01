@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { supabase } from "../../supabase"
-import { StockNavBar } from "../../components/NavBar"
+import { DynamicNavBar } from "../../components/NavBar"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED, AMBER, SILVER, GOLD } from '../../theme'
 
 function LogoIcon({ size = 44 }) {
@@ -328,7 +328,7 @@ export default function Login() {
         </div>
       </div>
 
-      <StockNavBar navigate={navigate} active="account" />
+      <DynamicNavBar active="account" />
     </div>
   )
 }

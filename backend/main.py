@@ -337,6 +337,11 @@ async def get_balance(user_id: str = Depends(get_current_user)):
     usdt = next((i for i in b if i["asset"] == "USDT"), {"balance": 0})
     return {"balance": float(usdt["balance"])}
 
+@app.get("/indicators")
+async def get_indicators(user_id: str = Depends(get_current_user)):
+    """모니터용 지표 데이터 조회"""
+    return {"indicators": user_indicators.get(user_id, {})}
+
 @app.get("/subscription")
 async def get_subscription(user_id: str = Depends(get_current_user)):
     """사용자 구독 정보 조회"""
