@@ -2,21 +2,13 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../../theme'
 
-function LogoIcon({ size = 64 }) {
+function LogoIcon({ size = 32 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
-      {/* BLUE 배경 */}
       <rect width="128" height="128" rx="20" fill={BLUE}/>
-      
-      {/* 중앙 $ 심볼 */}
-      <text x="64" y="78" textAnchor="middle" fill="white" fontSize="56" fontWeight="700" fontFamily="'Orbitron', sans-serif">$</text>
-      
-      {/* 우측 상단 비트코인 ₿ 배지 */}
-      <circle cx="98" cy="30" r="20" fill="#F7931A"/>
-      <text x="98" y="38" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="'Orbitron', sans-serif">₿</text>
-      
-      {/* subtle glow effect */}
-      <circle cx="64" cy="64" r="50" stroke="white" strokeWidth="2" fill="none" opacity="0.1"/>
+      <circle cx="64" cy="64" r="44" stroke="white" strokeWidth="8" fill="none" opacity="0.25"/>
+      <path d="M64 20 A44 44 0 1 0 64 108" stroke="white" strokeWidth="9.2" strokeLinecap="round" fill="none"/>
+      <line x1="82" y1="82" x2="106" y2="110" stroke="white" strokeWidth="9.2" strokeLinecap="round"/>
     </svg>
   )
 }
