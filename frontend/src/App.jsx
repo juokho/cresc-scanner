@@ -1,6 +1,8 @@
+import { createContext, useContext, useState, useCallback } from "react"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
-import ErrorBoundary  from "./components/ErrorBoundary"
+import ErrorBoundary from "./components/ErrorBoundary"
 import ProtectedRoute from "./pages/common/ProtectedRoute"
+import GlobalLoader from "./components/GlobalLoader"
 
 // 공통
 import Landing     from "./pages/common/Landing"
@@ -17,10 +19,41 @@ import Trade        from "./pages/crypto/Trade"          // 봇제어
 import CryptoMonitor  from "./pages/crypto/CryptoMonitor"  // BTC 모니터
 import CryptoHistory  from "./pages/crypto/CryptoHistory"  // BTC 거래내역
 
+// 전역 로딩 Context
+const LoadingContext = createContext(null)
+
+export function useGlobalLoading() {
+  const ctx = useContext(LoadingContext)
+  if (!ctx) throw new Error("useGlobalLoading must be used within LoadingProvider")
+  return ctx
+}
+
+function LoadingProvider({ children }) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("ANALYZING MARKET...")
+
+  const showLoading = useCallback((message = "ANALYZING MARKET...") => {
+    setLoadingMessage(message)
+    setIsLoading(true)
+  }, [])
+
+  const hideLoading = useCallback(() => {
+    setIsLoading(false)
+  }, [])
+
+  return (
+    <LoadingContext.Provider value={{ showLoading, hideLoading, isLoading }}>
+      {children}
+      <GlobalLoader isLoading={isLoading} message={loadingMessage} />
+    </LoadingContext.Provider>
+  )
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <LoadingProvider>
         <Routes>
           {/* 퍼블릭 */}
           <Route path="/"        element={<Landing />} />
@@ -47,7 +80,8 @@ export default function App() {
           <Route path="/monitor"   element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/history"   element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
         </Routes>
-      </BrowserRouter>
-    </ErrorBoundary>
+      </LoadingProvider>
+    </BrowserRouter>
+  </ErrorBoundary>
   )
 }

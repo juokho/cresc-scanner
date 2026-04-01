@@ -1,7 +1,13 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN, RED } from '../../theme'
+import { supabase } from "../../supabase"
+import { useGlobalLoading } from "../../App"
+import { 
+  BLUE, BLUE_LT, BG, SURFACE, BORDER, 
+  TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN 
+} from '../../theme'
 
+// 로고 컴포넌트
 function LogoIcon({ size = 32 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
@@ -13,249 +19,187 @@ function LogoIcon({ size = 32 }) {
   )
 }
 
-function ServiceCard({ icon, title, subtitle, description, features, buttonText, onClick, isActive }) {
+export default function Landing() {
+  const navigate = useNavigate()
+  const { showLoading, hideLoading } = useGlobalLoading()
+  const [hoveredCard, setHoveredCard] = useState(null)
+
+  const handleServiceSelect = async (path, serviceName) => {
+    showLoading(`QUANTER V3 엔진이 ${serviceName} 데이터를 동기화 중입니다...`)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      setTimeout(() => {
+        if (session) navigate(path)
+        else navigate("/login", { state: { from: path } })
+        hideLoading()
+      }, 800)
+    } catch (e) {
+      hideLoading()
+      navigate("/login")
+    }
+  }
+
   return (
-    <div
-      onClick={onClick}
-      style={{
-        flex: 1,
-        background: isActive ? `${BLUE}18` : SURFACE,
-        border: `1px solid ${isActive ? BLUE : BORDER}`,
-        borderRadius: 20,
-        padding: "28px 24px",
-        cursor: "pointer",
-        transition: "all 0.3s ease",
-        transform: isActive ? "scale(1.02)" : "scale(1)",
-        position: "relative",
-        boxShadow: isActive ? `0 0 24px ${BLUE}30` : "none"
-      }}
-    >
-      {isActive && (
-        <div style={{
-          position: "absolute", top: -11, right: 20,
-          background: BLUE, color: "#fff",
-          fontSize: 9, padding: "4px 12px",
-          borderRadius: 20, letterSpacing: "1.5px",
-          fontFamily: "'Orbitron', sans-serif"
-        }}>SELECTED</div>
-      )}
+    <div style={{ background: BG, minHeight: "100vh", color: TEXT_PRI, fontFamily: "'Inter', sans-serif" }}>
+      
+      {/* --- HERO SECTION --- */}
+      <div style={{ 
+        padding: "50px 24px 30px", 
+        textAlign: "center",
+        background: `radial-gradient(circle at center, ${BLUE}12 0%, ${BG} 70%)` 
+      }}>
+        <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <LogoIcon size={30} />
+          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: "20px", fontWeight: 900, letterSpacing: "1.2px" }}>
+            QUANTER
+          </span>
+        </div>
+        
+        <h1 style={{ 
+          fontFamily: "'Orbitron', sans-serif", 
+          fontSize: "36px", 
+          fontWeight: 900, 
+          lineHeight: 1,
+          marginBottom: "16px",
+          color: BLUE_LT,
+          textShadow: `0 0 25px ${BLUE}AA`,
+        }}>
+          Beyond Tracing
+        </h1>
 
-      <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 44, marginBottom: 14 }}>
-          {icon === "chart" ? "📊" : "⚡"}
-        </div>
-        <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 700, color: TEXT_PRI, marginBottom: 4 }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 12, color: BLUE_LT, fontWeight: 600, letterSpacing: "0.5px" }}>
-          {subtitle}
+        <p style={{ fontSize: "13px", color: TEXT_MUT, lineHeight: 1.5, maxWidth: "260px", margin: "0 auto 24px" }}>
+          차트 앞에서 밤새지 마세요.<br/>
+          V3 엔진이 시장을 실시간 스캔하여<br/>
+          <span style={{ color: TEXT_PRI, fontWeight: 700 }}>승률 높은 타점</span>만 골라냅니다.
+        </p>
+
+        {/* 성능 지표 (더 작고 깔끔하게) */}
+        <div style={{ 
+          display: "inline-flex", 
+          alignItems: "center", 
+          gap: 10, 
+          padding: "8px 16px", 
+          borderRadius: "16px", 
+          background: SURFACE, 
+          border: `0.5px solid ${BORDER}` 
+        }}>
+          {[
+            { label: "승률", value: "74.29%" },
+            { label: "MDD", value: "-2.17%" },
+            { label: "손익비", value: "2.067" }
+          ].map((item, idx) => (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "8px", color: TEXT_MUT, marginBottom: 1 }}>{item.label}</div>
+                <div style={{ fontSize: "11px", color: TEXT_PRI, fontWeight: 800, fontFamily: "'Orbitron', sans-serif" }}>{item.value}</div>
+              </div>
+              {idx < 2 && <div style={{ width: 1, height: 12, background: BORDER }} />}
+            </div>
+          ))}
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: TEXT_MUT, lineHeight: 1.7, textAlign: "center", marginBottom: 20 }}>
-        {description}
-      </div>
+      {/* --- SERVICE CARDS (대시보드 스타일로 대폭 축소) --- */}
+      <div style={{ 
+        padding: "0 24px 40px", 
+        display: "flex", 
+        flexDirection: "column", 
+        gap: 10,
+        maxWidth: "400px", // 카드 전체 너비 제한
+        margin: "0 auto" 
+      }}>
+        <h2 style={{ fontSize: "10px", color: TEXT_HINT, fontWeight: 800, letterSpacing: "2px", marginBottom: 2, textAlign: "center" }}>
+          SELECT ASSET
+        </h2>
 
-      <div style={{ marginBottom: 24 }}>
-        {features.map((feature, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
-            <div style={{ width: 5, height: 5, borderRadius: "50%", background: BLUE_LT, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: TEXT_MUT }}>{feature}</span>
+        {/* 미국 주식 카드 */}
+        <div 
+          onClick={() => handleServiceSelect("/stock", "미국 주식")}
+          onMouseEnter={() => setHoveredCard('stock')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            ...cardStyle,
+            border: hoveredCard === 'stock' ? `1.5px solid ${BLUE_LT}` : `0.5px solid ${BORDER}`,
+            boxShadow: hoveredCard === 'stock' ? `0 0 15px ${BLUE}66` : 'none',
+          }}
+        >
+          <div style={iconBoxStyle}>🇺🇸</div>
+          <div style={{ flex: 1 }}>
+            <div style={cardTitleStyle}>US Stock Scanner</div>
+            <div style={cardDescStyle}>시그널 포착 및 디스코드 알림</div>
           </div>
-        ))}
+          <div style={arrowStyle}>→</div>
+        </div>
+
+        {/* 비트코인 카드 */}
+        <div 
+          onClick={() => handleServiceSelect("/crypto", "비트코인")}
+          onMouseEnter={() => setHoveredCard('crypto')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            ...cardStyle,
+            border: hoveredCard === 'crypto' ? `1.5px solid ${BLUE_LT}` : `0.5px solid ${BLUE}22`,
+            boxShadow: hoveredCard === 'crypto' ? `0 0 15px ${BLUE}66` : 'none',
+          }}
+        >
+          <div style={{ ...iconBoxStyle, background: `${BLUE}15` }}>₿</div>
+          <div style={{ flex: 1 }}>
+            <div style={cardTitleStyle}>Crypto Auto-Bot</div>
+            <div style={cardDescStyle}>V3 엔진 기반 24시간 자동 매매</div>
+          </div>
+          <div style={arrowStyle}>→</div>
+        </div>
       </div>
 
-      <button
-        onClick={(e) => { e.stopPropagation(); onClick() }}
-        style={{
-          width: "100%", padding: "13px",
-          background: isActive ? BLUE : "transparent",
-          border: `1px solid ${isActive ? BLUE : BORDER}`,
-          borderRadius: 10, color: isActive ? "#fff" : TEXT_PRI,
-          fontSize: 11, fontWeight: 700, letterSpacing: "1px",
-          cursor: "pointer", transition: "all 0.2s",
-          fontFamily: "'Orbitron', sans-serif"
-        }}
-      >
-        {buttonText}
-      </button>
+      {/* --- FOOTER --- */}
+      <div style={{ textAlign: "center", padding: "20px 40px 60px", opacity: 0.4 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 14, fontSize: "10px", fontWeight: 700, color: TEXT_MUT, fontFamily: "'Orbitron', sans-serif" }}>
+          <span>V3 ENGINE</span>
+          <span>KMONG</span>
+          <span>ROONA</span>
+        </div>
+      </div>
     </div>
   )
 }
 
-export default function Landing() {
-  const [selectedService, setSelectedService] = useState(null)
-  const navigate = useNavigate()
+// 스타일 객체 (Home.jsx 카드 사이즈와 동기화)
+const cardStyle = {
+  background: SURFACE,
+  padding: "12px 16px", // 16px -> 12px로 더 줄여 대시보드 느낌 강조
+  borderRadius: "12px", // 16px -> 12px로 샤프하게
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  cursor: "pointer",
+  transition: "all 0.2s ease-out"
+}
 
-  const services = [
-    {
-      id: "scanner",
-      icon: "chart",
-      title: "미국 주식",
-      subtitle: "ETF 스캐너",
-      description: "실시간 시그널로 미국 ETF 투자 기회를 포착하세요. 양방향 수익 추구",
-      features: [
-        "60+ 레버리지 ETF 실시간 모니터링",
-        "LONG / SHORT 양방향 시그널",
-        "CI + Z-Score 기반 정밀 분석",
-        "디스코드 실시간 알림",
-        "무료 시그널 조회 가능"
-      ],
-      buttonText: "스캐너 시작하기",
-      url: "/stock"
-    },
-    {
-      id: "trading",
-      icon: "bot",
-      title: "코인 선물",
-      subtitle: "자동매매 봇",
-      description: "바이낸스 선물 자동매매. 24시간 시장을 분석하고 진입·청산을 자동으로 실행합니다",
-      features: [
-        "바이낸스 선물 시장 연동",
-        "자동 손절 / 익절 실행",
-        "레버리지 1x – 125x 설정",
-        "실시간 포지션 모니터링",
-        "다중 심볼 동시 운용"
-      ],
-      buttonText: "자동매매 시작하기",
-      url: "/crypto"
-    }
-  ]
+const iconBoxStyle = {
+  width: "36px",  // 40px -> 36px
+  height: "36px", // 40px -> 36px
+  background: BORDER,
+  borderRadius: "8px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "18px"
+}
 
-  const handleServiceSelect = async (service) => {
-    setSelectedService(service.id)
-    const { supabase } = await import("../../supabase")
-    const { data: { session } } = await supabase.auth.getSession()
-    setTimeout(() => {
-      if (session) {
-        navigate(service.url)
-      } else {
-        navigate("/login", { state: { from: service.url } })
-      }
-    }, 300)
-  }
+const cardTitleStyle = {
+  fontSize: "13px", // 14px -> 13px
+  fontWeight: 700,
+  marginBottom: "1px",
+  color: TEXT_PRI
+}
 
-  return (
-    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: TEXT_PRI }}>
+const cardDescStyle = {
+  fontSize: "10.5px", // 11px -> 10.5px
+  color: TEXT_MUT,
+  lineHeight: 1.3
+}
 
-      {/* 헤더 */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "18px 24px",
-        borderBottom: `0.5px solid ${BORDER}`,
-        position: "sticky", top: 0, background: BG, zIndex: 10
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <LogoIcon size={28} />
-          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700, color: BLUE_LT }}>
-            QUANTER
-          </span>
-        </div>
-        <button
-          onClick={() => navigate("/login")}
-          style={{
-            background: "transparent", border: `0.5px solid ${BORDER}`,
-            borderRadius: 8, padding: "7px 16px",
-            color: TEXT_MUT, fontSize: 11, cursor: "pointer"
-          }}
-        >
-          로그인
-        </button>
-      </div>
-
-      <div style={{ padding: "48px 24px 80px", maxWidth: 480, margin: "0 auto" }}>
-
-        {/* 히어로 */}
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
-
-          {/* 태그라인 */}
-          <div style={{
-            display: "inline-block",
-            background: `${BLUE}18`, border: `0.5px solid ${BLUE}50`,
-            borderRadius: 20, padding: "5px 14px",
-            fontSize: 10, color: BLUE_LT, letterSpacing: "1.5px",
-            fontWeight: 600, marginBottom: 24
-          }}>
-            AI-POWERED INVESTMENT
-          </div>
-
-          <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.35, marginBottom: 20 }}>
-            시간 쏟지 마세요<br/>
-            <span style={{ color: BLUE_LT }}>투자는 AI에게</span>
-          </div>
-
-          <div style={{ fontSize: 14, color: TEXT_MUT, lineHeight: 1.9, marginBottom: 32 }}>
-            본업에 집중하세요. 가족과 함께하세요.<br/>
-            시장 분석과 매매는 QUANTER가 대신합니다.<br/>
-            <span style={{ color: TEXT_PRI, fontWeight: 500 }}>일상으로의 복귀, 그게 진짜 수익입니다.</span>
-          </div>
-
-          {/* 한 줄 통계 */}
-          <div style={{ display: "flex", gap: 0, borderRadius: 14, overflow: "hidden", border: `0.5px solid ${BORDER}` }}>
-            {[
-              { value: "70.3%", label: "백테스트 승률" },
-              { value: "1.9", label: "Profit Factor" },
-              { value: "4.69%", label: "MDD(최대낙폭)" },
-            ].map((s, i) => (
-              <div key={i} style={{
-                flex: 1, padding: "16px 8px", textAlign: "center",
-                background: SURFACE,
-                borderRight: i < 2 ? `0.5px solid ${BORDER}` : "none"
-              }}>
-                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 700, color: BLUE_LT }}>{s.value}</div>
-                <div style={{ fontSize: 9, color: TEXT_HINT, marginTop: 3, letterSpacing: "0.3px" }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 일상 복귀 포인트 3가지 */}
-        <div style={{ marginBottom: 48 }}>
-          <div style={{ fontSize: 11, color: TEXT_HINT, letterSpacing: "1.5px", fontWeight: 600, marginBottom: 20, textAlign: "center" }}>
-            QUANTER를 쓰는 이유
-          </div>
-          {[
-            { icon: "💼", title: "본업에 집중", desc: "시장을 볼 시간에 더 중요한 일을 하세요. 매매 타이밍은 AI가 잡습니다." },
-            { icon: "👨‍👩‍👧", title: "가족과 함께", desc: "차트 대신 가족을 보세요. 포지션 관리는 봇이 24시간 대신합니다." },
-            { icon: "😌", title: "감정 없는 매매", desc: "공포와 탐욕 없이, 데이터와 로직으로만 움직이는 투자를 경험하세요." },
-          ].map((item, i) => (
-            <div key={i} style={{
-              display: "flex", gap: 16, alignItems: "flex-start",
-              padding: "18px 0",
-              borderBottom: i < 2 ? `0.5px solid ${BORDER}` : "none"
-            }}>
-              <div style={{ fontSize: 28, flexShrink: 0, width: 40, textAlign: "center" }}>{item.icon}</div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{item.title}</div>
-                <div style={{ fontSize: 12, color: TEXT_MUT, lineHeight: 1.7 }}>{item.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 서비스 선택 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: TEXT_HINT, letterSpacing: "1.5px", fontWeight: 600, marginBottom: 20, textAlign: "center" }}>
-            서비스 선택
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {services.map(service => (
-              <ServiceCard
-                key={service.id}
-                {...service}
-                isActive={selectedService === service.id}
-                onClick={() => handleServiceSelect(service)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* 푸터 */}
-        <div style={{ textAlign: "center", marginTop: 48, fontSize: 10, color: TEXT_HINT, lineHeight: 1.8 }}>
-          모든 투자 결정과 손실은 사용자 본인의 책임입니다<br/>
-          QUANTER는 투자 참고용 정보만 제공합니다
-        </div>
-      </div>
-    </div>
-  )
+const arrowStyle = {
+  fontSize: "14px",
+  color: TEXT_HINT
 }

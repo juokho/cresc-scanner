@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
+import { useGlobalLoading } from "../../App"
 import { fetchSignals, fetchTrades, checkAuth, getApiKey, getTier, triggerScan } from "../../api"
 import { StockNavBar } from "../../components/NavBar"
 import { supabase } from "../../supabase"
@@ -558,16 +559,17 @@ export default function Home() {
                     <button
                       key={tf.id}
                       onClick={async () => {
+                        const { showLoading, hideLoading } = useGlobalLoading()
                         setTimeframe(tf.id)
                         setShowTimeframeMenu(false)
                         setActiveTab("signals")
-                        setLoading(true)
+                        showLoading(`LOADING ${tf.label}...`)
                         // 온디맨드 스캔 트리거
                         if (tf.id !== "5m") {
                           await triggerScan(tf.id)
                         }
                         await fetchData(tf.id)
-                        setLoading(false)
+                        hideLoading()
                       }}
                       style={{
                         width: "100%",

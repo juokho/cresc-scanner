@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabase"
 import useBotStatus from "../../hooks/useBotStatus"
 import { CryptoNavBar } from "../../components/NavBar"
+import { useGlobalLoading } from "../../App"
 
 const BLUE     = "#3B5BDB"
 const BLUE_LT  = "#4C6EF5"
@@ -185,6 +186,8 @@ export default function Trade() {
       setShowApiForm(true)
       return
     }
+    const { showLoading, hideLoading } = useGlobalLoading()
+    showLoading(botRunning ? "STOPPING BOT..." : "INITIALIZING BOT...")
     setTogLoading(true)
     try {
       const headers = await getTradingHeaders()
@@ -212,6 +215,7 @@ export default function Trade() {
       setErrorMsg(e.message || "오류가 발생했습니다")
       setTimeout(() => setErrorMsg(""), 4000)
     } finally {
+      hideLoading()
       setTogLoading(false)
       await poll()
     }
