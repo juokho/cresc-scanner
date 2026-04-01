@@ -134,8 +134,40 @@ async def check_feature_access(user_id: str, required_feature: str) -> bool:
 # ============================================================
 # [5] 앱 수명 주기 관리 (백그라운드 루프 시작)
 # ============================================================
+async def restore_bot_status_from_supabase():
+    """서버 시작 시 Supabase에서 봇 상태 복원"""
+    try:
+        res = supabase_client.table("user_settings").select("user_id,bot_enabled").eq("bot_enabled", True).execute()
+        if res.data:
+            log.info(f"[restore] {len(res.data)}개 봇 상태 복원 중...")
+            for row in res.data:
+                user_id = row["user_id"]
+                # API 키 확인
+                key_res = supabase_client.table("api_keys").select("*").eq("user_id", user_id).execute()
+                if key_res.data:
+                    try:
+                        raw_api = key_res.data[0]["api_key_encrypted"]
+                        raw_sec = key_res.data[0]["secret_key_encrypted"]
+                        api = decrypt(raw_api)
+                        sec = decrypt(raw_sec)
+                        if api and sec and init_binance(user_id, api, sec):
+                            with _state_lock:
+                                state = get_user_state(user_id)
+                                state["is_order_enabled"] = True
+                            log.info(f"[restore] 봇 복원 완료: {user_id[:8]}...")
+                        else:
+                            log.warning(f"[restore] Binance 인증 실패: {user_id[:8]}...")
+                    except Exception as e:
+                        log.error(f"[restore] 봇 복원 오류 {user_id[:8]}...: {e}")
+        else:
+            log.info("[restore] 복원할 봇 상태 없음")
+    except Exception as e:
+        log.error(f"[restore] Supabase 조회 실패: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 서버 시작 시 봇 상태 복원
+    await restore_bot_status_from_supabase()
     # 서버 시작 시 트레이딩 엔진 가동
     asyncio.create_task(monitor_loop())
     asyncio.create_task(position_cleanup_loop())
@@ -227,12 +259,32 @@ async def start_bot(req: BotStartRequest, user_id: str = Depends(get_current_use
             "sl_mode":          req.sl_mode,
             "selected_symbols": req.selected_symbols,
         })
+    
+    # Supabase에 봇 상태 저장
+    try:
+        supabase_client.table("user_settings").upsert(
+            {"user_id": user_id, "bot_enabled": True, "updated_at": "now()"},
+            on_conflict="user_id"
+        ).execute()
+    except Exception as e:
+        log.error(f"[bot/start] Supabase 저장 실패: {e}")
+    
     return {"message": "봇이 시작되었습니다", "status": "success"}
 
 @app.post("/bot/stop")
 async def stop_bot(user_id: str = Depends(get_current_user)):
     with _state_lock:
         get_user_state(user_id)["is_order_enabled"] = False
+    
+    # Supabase에 봇 상태 저장
+    try:
+        supabase_client.table("user_settings").upsert(
+            {"user_id": user_id, "bot_enabled": False, "updated_at": "now()"},
+            on_conflict="user_id"
+        ).execute()
+    except Exception as e:
+        log.error(f"[bot/stop] Supabase 저장 실패: {e}")
+    
     return {"message": "봇이 정지되었습니다"}
 
 @app.get("/positions")
