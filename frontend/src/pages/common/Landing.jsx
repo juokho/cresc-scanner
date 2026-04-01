@@ -4,7 +4,7 @@ import { supabase } from "../../supabase"
 import { useGlobalLoading } from "../../App"
 import { 
   BLUE, BLUE_LT, BG, SURFACE, BORDER, 
-  TEXT_PRI, TEXT_MUT, TEXT_HINT, GREEN 
+  TEXT_PRI, TEXT_MUT, TEXT_HINT, SILVER 
 } from '../../theme'
 
 // 로고 컴포넌트
@@ -48,7 +48,7 @@ export default function Landing() {
         textAlign: "center",
         background: `radial-gradient(circle at center, ${BLUE}12 0%, ${BG} 70%)` 
       }}>
-        <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+        <div style={{ marginBottom: 32, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
           <LogoIcon size={30} />
           <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: "20px", fontWeight: 900, letterSpacing: "1.2px" }}>
             QUANTER
@@ -60,14 +60,14 @@ export default function Landing() {
           fontSize: "36px", 
           fontWeight: 900, 
           lineHeight: 1,
-          marginBottom: "16px",
+          marginBottom: "32px",
           color: BLUE_LT,
           textShadow: `0 0 25px ${BLUE}AA`,
         }}>
-          Beyond Tracing
+         " Beyond Tracing"
         </h1>
 
-        <p style={{ fontSize: "13px", color: TEXT_MUT, lineHeight: 1.5, maxWidth: "260px", margin: "0 auto 24px" }}>
+        <p style={{ fontSize: "13px", color: SILVER, lineHeight: 1.5, maxWidth: "260px", margin: "0 auto 24px" }}>
           차트 앞에서 밤새지 마세요.<br/>
           V3 엔진이 시장을 실시간 스캔하여<br/>
           <span style={{ color: TEXT_PRI, fontWeight: 700 }}>승률 높은 타점</span>만 골라냅니다.
@@ -90,8 +90,8 @@ export default function Landing() {
           ].map((item, idx) => (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "8px", color: TEXT_MUT, marginBottom: 1 }}>{item.label}</div>
-                <div style={{ fontSize: "11px", color: TEXT_PRI, fontWeight: 800, fontFamily: "'Orbitron', sans-serif" }}>{item.value}</div>
+                <div style={{ fontSize: "9px", color: TEXT_MUT, marginBottom: 1 }}>{item.label}</div>
+                <div style={{ fontSize: "12px", color: BLUE, fontWeight: 800, fontFamily: "'Orbitron', sans-serif" }}>{item.value}</div>
               </div>
               {idx < 2 && <div style={{ width: 1, height: 12, background: BORDER }} />}
             </div>
@@ -125,7 +125,7 @@ export default function Landing() {
         >
           <div style={iconBoxStyle}>🇺🇸</div>
           <div style={{ flex: 1 }}>
-            <div style={cardTitleStyle}>US Stock Scanner</div>
+            <div style={cardTitleStyle}>미국주식 스캐너</div>
             <div style={cardDescStyle}>시그널 포착 및 디스코드 알림</div>
           </div>
           <div style={arrowStyle}>→</div>
@@ -144,8 +144,8 @@ export default function Landing() {
         >
           <div style={{ ...iconBoxStyle, background: `${BLUE}15` }}>₿</div>
           <div style={{ flex: 1 }}>
-            <div style={cardTitleStyle}>Crypto Auto-Bot</div>
-            <div style={cardDescStyle}>V3 엔진 기반 24시간 자동 매매</div>
+            <div style={cardTitleStyle}>코인 선물 자동매매 봇</div>
+            <div style={cardDescStyle}>QUANTER 엔진 기반 24시간 자동 매매</div>
           </div>
           <div style={arrowStyle}>→</div>
         </div>
@@ -153,10 +153,8 @@ export default function Landing() {
 
       {/* --- FOOTER --- */}
       <div style={{ textAlign: "center", padding: "20px 40px 60px", opacity: 0.4 }}>
-        <div style={{ display: "flex", justifyContent: "center", gap: 14, fontSize: "10px", fontWeight: 700, color: TEXT_MUT, fontFamily: "'Orbitron', sans-serif" }}>
-          <span>V3 ENGINE</span>
-          <span>KMONG</span>
-          <span>ROONA</span>
+        <div style={{ display: "flex", justifyContent: "center", gap: 14, fontSize: "10px", fontWeight: 700, color: SILVER, fontFamily: "'Orbitron', sans-serif" }}>
+          <span>QUANTER ENGINE</span>
         </div>
       </div>
     </div>
@@ -194,8 +192,8 @@ const cardTitleStyle = {
 }
 
 const cardDescStyle = {
-  fontSize: "10.5px", // 11px -> 10.5px
-  color: TEXT_MUT,
+  fontSize: "10.5px",
+  color: SILVER,
   lineHeight: 1.3
 }
 
