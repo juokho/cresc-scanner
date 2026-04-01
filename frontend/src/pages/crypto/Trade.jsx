@@ -491,17 +491,15 @@ export default function Trade() {
 
 export function NavBar({ navigate, active }) {
   const items = [
-    { id: "home",    label: "스캐너", path: "/dashboard" },
-    { id: "trade",   label: "매매",   path: "/trade" },
-    { id: "pricing", label: "플랜",   path: "/pricing" },
-    { id: "account", label: "계정",   path: "/account" },
+    { id: "bot",     label: "봇제어", path: "/crypto",
+      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="5" y="3" width="10" height="14" rx="2" stroke={c} strokeWidth="1.5"/><path d="M8 7h4M8 10h4M8 13h2" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg> },
+    { id: "monitor", label: "모니터", path: "/crypto/monitor",
+      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="4" height="8" rx="1" fill={c}/><rect x="8" y="6" width="4" height="12" rx="1" fill={c}/><rect x="14" y="2" width="4" height="16" rx="1" fill={c}/></svg> },
+    { id: "switch",  label: "미국주식", path: "/stock",
+      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 4L3 8M3 8l4 4M3 8h14M13 16l4-4m0 0l-4-4m4 4H3" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+    { id: "account", label: "계정",   path: "/account",
+      icon: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={c} strokeWidth="1.5"/><path d="M4 17c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg> },
   ]
-  const icons = {
-    home:    (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9l7-6 7 6v8a1 1 0 01-1 1H4a1 1 0 01-1-1z" stroke={c} strokeWidth="1.5"/><path d="M7 18v-7h6v7" stroke={c} strokeWidth="1.5"/></svg>,
-    trade:   (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10h14M13 5l5 5-5 5M7 5L2 10l5 5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-    pricing: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><polygon points="10,2 12.9,7 18.5,7.6 14.2,11.7 15.4,17.3 10,14.5 4.6,17.3 5.8,11.7 1.5,7.6 7.1,7" stroke={c} strokeWidth="1.4" fill="none"/></svg>,
-    account: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke={c} strokeWidth="1.5"/><path d="M4 17c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  }
   return (
     <div style={{
       position: "fixed", bottom: 0, left: 0, right: 0,
@@ -511,13 +509,14 @@ export function NavBar({ navigate, active }) {
     }}>
       {items.map(item => {
         const isActive = active === item.id
-        const color = isActive ? BLUE_LT : TEXT_HINT
+        const isSwitch = item.id === "switch"
+        const color = isActive ? BLUE_LT : isSwitch ? AMBER : TEXT_HINT
         return (
           <div key={item.id} onClick={() => navigate(item.path)}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", padding: "6px 16px", borderRadius: 10, background: isActive ? `${BLUE}20` : "transparent", userSelect: "none" }}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", padding: "6px 16px", borderRadius: 10, background: isActive ? `${BLUE}20` : isSwitch ? `${AMBER}30` : "transparent", border: isSwitch ? `1px solid ${AMBER}` : "none", userSelect: "none" }}
           >
-            {icons[item.id](color)}
-            <span style={{ fontSize: 9, color, fontWeight: isActive ? 700 : 400, letterSpacing: "0.3px" }}>{item.label}</span>
+            {item.icon(color)}
+            <span style={{ fontSize: 9, color, fontWeight: isActive || isSwitch ? 700 : 400, letterSpacing: "0.3px" }}>{item.label}</span>
           </div>
         )
       })}

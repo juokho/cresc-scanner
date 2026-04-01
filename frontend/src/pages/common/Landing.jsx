@@ -5,10 +5,18 @@ import { BLUE, BLUE_LT, BG, SURFACE, BORDER, TEXT_PRI, TEXT_MUT, TEXT_HINT, GREE
 function LogoIcon({ size = 64 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      {/* BLUE 배경 */}
       <rect width="128" height="128" rx="20" fill={BLUE}/>
-      <circle cx="64" cy="64" r="44" stroke="white" strokeWidth="8" fill="none" opacity="0.25"/>
-      <path d="M64 20 A44 44 0 1 0 64 108" stroke="white" strokeWidth="9.2" strokeLinecap="round" fill="none"/>
-      <line x1="82" y1="82" x2="106" y2="110" stroke="white" strokeWidth="9.2" strokeLinecap="round"/>
+      
+      {/* 중앙 $ 심볼 */}
+      <text x="64" y="78" textAnchor="middle" fill="white" fontSize="56" fontWeight="700" fontFamily="'Orbitron', sans-serif">$</text>
+      
+      {/* 우측 상단 비트코인 ₿ 배지 */}
+      <circle cx="98" cy="30" r="20" fill="#F7931A"/>
+      <text x="98" y="38" textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="'Orbitron', sans-serif">₿</text>
+      
+      {/* subtle glow effect */}
+      <circle cx="64" cy="64" r="50" stroke="white" strokeWidth="2" fill="none" opacity="0.1"/>
     </svg>
   )
 }
@@ -93,13 +101,13 @@ export default function Landing() {
       icon: "chart",
       title: "미국 주식",
       subtitle: "ETF 스캐너",
-      description: "실시간 시그널로 미국 3X ETF 투자 기회를 포착하세요. 상승장도 하락장도 양방향 수익 가능",
+      description: "실시간 시그널로 미국 ETF 투자 기회를 포착하세요. 양방향 수익 추구",
       features: [
         "60+ 레버리지 ETF 실시간 모니터링",
         "LONG / SHORT 양방향 시그널",
-        "CI + Z-Score 기반 고정밀 분석",
+        "CI + Z-Score 기반 정밀 분석",
         "디스코드 실시간 알림",
-        "무료로 시작 가능"
+        "무료 시그널 조회 가능"
       ],
       buttonText: "스캐너 시작하기",
       url: "/stock"
@@ -193,9 +201,9 @@ export default function Landing() {
           {/* 한 줄 통계 */}
           <div style={{ display: "flex", gap: 0, borderRadius: 14, overflow: "hidden", border: `0.5px solid ${BORDER}` }}>
             {[
-              { value: "24/7", label: "무중단 운용" },
-              { value: "60+", label: "ETF 모니터링" },
-              { value: "자동", label: "진입·청산" },
+              { value: "70.3%", label: "백테스트 승률" },
+              { value: "1.9", label: "Profit Factor" },
+              { value: "4.69%", label: "MDD(최대낙폭)" },
             ].map((s, i) => (
               <div key={i} style={{
                 flex: 1, padding: "16px 8px", textAlign: "center",
