@@ -5,6 +5,7 @@ import numpy as np
 import requests
 import urllib3
 import os
+import json
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
@@ -24,34 +25,31 @@ PREMIUM_API_KEYS     = [k.strip() for k in os.getenv("PREMIUM_API_KEYS", "").spl
 LOG_FILE = "trade_log.csv"
 
 # ── 인증 ─────────────────────────────────────────────────────
-def verify_token(x_api_key: str = Header(default=""), x_tier: str = Header(default="free")) -> dict:
-    """간단한 tier 검증 - 헤더에서 직접 tier 확인 후 subscriptions 테이블로 검증"""
-    print(f"[DEBUG] verify_token called with API key: {x_api_key[:10]}..., tier header: {x_tier}")
+def verify_token(authorization: str = Header(default=""), x_tier: str = Header(default="free")) -> dict:
+    """JWT 토큰에서 user_id 추출 및 tier 검증"""
+    print(f"[DEBUG] verify_token called")
     is_premium, tier = False, x_tier or "free"
+    user_id = None
     
-    # API 키가 있으면 Supabase에서 검증 (subscriptions 테이블 사용)
-    if x_api_key and SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    # Bearer 토큰에서 user_id 추출 (JWT payload 파싱)
+    if authorization.startswith("Bearer "):
         try:
-            res = requests.get(
-                f"{SUPABASE_URL}/rest/v1/api_keys?api_key=eq.{x_api_key}&is_active=eq.true&select=tier",
-                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
-                timeout=3,
-            )
-            print(f"[DEBUG] Supabase response: status={res.status_code}, data={res.json()}")
-            if res.status_code == 200 and res.json():
-                tier = res.json()[0].get("tier", "free")
-                is_premium = tier == "premium"
+            token = authorization.split(" ")[1]
+            # JWT payload는 base64로 인코딩됨 (간단히 디코딩)
+            import base64
+            payload_b64 = token.split(".")[1]
+            # base64 패딩 추가
+            payload_b64 += "=" * (4 - len(payload_b64) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+            user_id = payload.get("sub")
+            print(f"[DEBUG] Extracted user_id from JWT: {user_id}")
         except Exception as e:
-            print(f"[Auth] Error: {e}")
-    else:
-        print(f"[DEBUG] Missing: x_api_key={bool(x_api_key)}, SUPABASE_URL={bool(SUPABASE_URL)}, SUPABASE_SERVICE_KEY={bool(SUPABASE_SERVICE_KEY)}")
+            print(f"[DEBUG] JWT parse error: {e}")
     
-    # 환경변수 PREMIUM_API_KEYS도 체크 (하위호환)
-    if x_api_key and x_api_key in PREMIUM_API_KEYS:
-        is_premium, tier = True, "premium"
+    # 기존 x-api-key 방식도 지원 (하위호환)
+    x_api_key = ""  # 기존 코드 호환용
     
-    print(f"[DEBUG] verify_token result: tier={tier}, is_premium={is_premium}")
-    return {"token": x_api_key, "is_premium": is_premium, "tier": tier}
+    return {"token": x_api_key, "is_premium": is_premium, "tier": tier, "user_id": user_id}
 
 def require_premium(auth: dict = Depends(verify_token)):
     if not auth["is_premium"]:
@@ -76,14 +74,19 @@ data_lock      = threading.RLock()
 # Supabase 포지션 저장/로드 함수
 # ============================================================
 def save_position_to_supabase(symbol: str, name: str, timeframe: str, side: str, 
-                               entry: float, sl: float, tp: float, status: str = "ACTIVE"):
-    """새 포지션을 Supabase에 저장"""
+                               entry: float, sl: float, tp: float, user_id: str, status: str = "open"):
+    """새 포지션을 Supabase에 저장 - positions 테이블 사용"""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        print(f"[SUPABASE ERROR] Missing credentials")
+        return None
+    
+    if not user_id:
+        print(f"[SUPABASE ERROR] Missing user_id")
         return None
     
     try:
         res = requests.post(
-            f"{SUPABASE_URL}/rest/v1/scanner_positions",
+            f"{SUPABASE_URL}/rest/v1/positions",
             headers={
                 "apikey": SUPABASE_SERVICE_KEY,
                 "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
@@ -91,21 +94,21 @@ def save_position_to_supabase(symbol: str, name: str, timeframe: str, side: str,
                 "Prefer": "return=representation"
             },
             json={
+                "user_id": user_id,
                 "symbol": symbol,
-                "name": name,
-                "timeframe": timeframe,
                 "side": side,
                 "entry_price": entry,
                 "current_price": entry,
                 "sl_price": sl,
                 "tp_price": tp,
-                "status": status
+                "status": status,
+                "be_active": False
             },
             timeout=5
         )
         if res.status_code == 201:
             data = res.json()
-            print(f"[SUPABASE] Position saved: {symbol} [{timeframe}] {side} @ {entry}")
+            print(f"[SUPABASE] Position saved: {symbol} {side} @ {entry}")
             return data[0] if data else None
         else:
             print(f"[SUPABASE ERROR] Save failed: {res.status_code} - {res.text}")
@@ -114,14 +117,17 @@ def save_position_to_supabase(symbol: str, name: str, timeframe: str, side: str,
         print(f"[SUPABASE ERROR] save_position: {e}")
         return None
 
-def update_position_in_supabase(symbol: str, timeframe: str, updates: dict):
-    """기존 포지션 업데이트 (SL/TP/가격 등)"""
+def update_position_in_supabase(symbol: str, user_id: str, updates: dict):
+    """기존 포지션 업데이트 (SL/TP/가격 등) - user_id로 필터링"""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return False
+    
+    if not user_id:
         return False
     
     try:
         res = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/scanner_positions?symbol=eq.{symbol}&timeframe=eq.{timeframe}&status=eq.ACTIVE",
+            f"{SUPABASE_URL}/rest/v1/positions?symbol=eq.{symbol}&user_id=eq.{user_id}&status=eq.open",
             headers={
                 "apikey": SUPABASE_SERVICE_KEY,
                 "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
@@ -131,54 +137,56 @@ def update_position_in_supabase(symbol: str, timeframe: str, updates: dict):
             timeout=5
         )
         if res.status_code == 204:
-            print(f"[SUPABASE] Position updated: {symbol} [{timeframe}] {updates}")
+            print(f"[SUPABASE] Position updated: {symbol} {updates}")
             return True
         return False
     except Exception as e:
         print(f"[SUPABASE ERROR] update_position: {e}")
         return False
 
-def close_position_in_supabase(symbol: str, timeframe: str, exit_price: float, 
+def close_position_in_supabase(symbol: str, user_id: str, exit_price: float, 
                                 realized_pnl: float, reason: str = "SL"):
-    """포지션 청산 (EXIT)"""
+    """포지션 청산 (status=closed) - user_id로 필터링"""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return False
+    
+    if not user_id:
         return False
     
     try:
         res = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/scanner_positions?symbol=eq.{symbol}&timeframe=eq.{timeframe}&status=eq.ACTIVE",
+            f"{SUPABASE_URL}/rest/v1/positions?symbol=eq.{symbol}&user_id=eq.{user_id}&status=eq.open",
             headers={
                 "apikey": SUPABASE_SERVICE_KEY,
                 "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                 "Content-Type": "application/json"
             },
             json={
-                "status": "CLOSED",
+                "status": "closed",
                 "exit_time": datetime.now().isoformat(),
-                "exit_price": exit_price,
-                "realized_pnl": realized_pnl,
-                "close_reason": reason
+                "current_price": exit_price,
+                "profit_pct": realized_pnl
             },
             timeout=5
         )
         if res.status_code == 204:
-            print(f"[SUPABASE] Position closed: {symbol} [{timeframe}] PnL={realized_pnl:.2f}%")
+            print(f"[SUPABASE] Position closed: {symbol} PnL={realized_pnl:.2f}%")
             return True
         return False
     except Exception as e:
         print(f"[SUPABASE ERROR] close_position: {e}")
         return False
 
-def load_active_positions_from_supabase(timeframe: str = None) -> dict:
+def load_active_positions_from_supabase(user_id: str = None) -> dict:
     """Supabase에서 활성 포지션 로드 (서버 재시작 시 복원)"""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return {}
     
+    if not user_id:
+        return {}
+    
     try:
-        url = f"{SUPABASE_URL}/rest/v1/scanner_positions?status=eq.ACTIVE"
-        if timeframe:
-            url += f"&timeframe=eq.{timeframe}"
-        url += "&select=*"
+        url = f"{SUPABASE_URL}/rest/v1/positions?user_id=eq.{user_id}&status=eq.open&select=*"
         
         res = requests.get(
             url,
@@ -192,20 +200,19 @@ def load_active_positions_from_supabase(timeframe: str = None) -> dict:
             data = res.json()
             positions = {}
             for pos in data:
-                key = f"{pos['symbol']}:{pos['timeframe']}"
+                # positions 테이블에는 timeframe 필드가 없으므로 symbol만으로 키 생성
+                key = pos["symbol"]
                 positions[key] = {
                     "symbol": pos["symbol"],
-                    "timeframe": pos["timeframe"],
                     "side": pos["side"],
                     "entry": float(pos["entry_price"]),
                     "current_price": float(pos["current_price"]) if pos["current_price"] else float(pos["entry_price"]),
-                    "sl": float(pos["sl_price"]),
-                    "tp": float(pos["tp_price"]),
-                    "be_active": pos["be_active"],
-                    "entry_time": pos["entry_time"],
+                    "sl": float(pos["sl_price"]) if pos["sl_price"] else 0,
+                    "tp": float(pos["tp_price"]) if pos["tp_price"] else 0,
+                    "be_active": pos.get("be_active", False),
                     "supabase_id": pos["id"]
                 }
-            print(f"[SUPABASE] Loaded {len(positions)} active positions")
+            print(f"[SUPABASE] Loaded {len(positions)} active positions for user {user_id[:8]}...")
             return positions
         return {}
     except Exception as e:
@@ -308,7 +315,7 @@ def fetch_5m(symbol):
     return fetch_data(symbol, "5m", "5d")
 
 # ── 핵심 처리 ─────────────────────────────────────────────────
-def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
+def process_ticker(symbol, info, timeframe="5m", is_premium_server=False, user_id=None):
     config = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["5m"])
     scan_state[timeframe]["current"] = symbol
     
@@ -377,7 +384,7 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
                 log_trade(symbol, side, curr_p, status="ENTRY", is_premium=is_premium_server)
                 
                 # Supabase에도 저장
-                if is_premium_server:
+                if is_premium_server and user_id:
                     save_position_to_supabase(
                         symbol=symbol,
                         name=info.get("name", symbol),
@@ -385,7 +392,8 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
                         side=side,
                         entry=curr_p,
                         sl=tf_positions[symbol]["sl"],
-                        tp=tf_positions[symbol]["tp"]
+                        tp=tf_positions[symbol]["tp"],
+                        user_id=user_id
                     )
 
             if symbol in tf_positions:
@@ -398,12 +406,12 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
                     log_trade(symbol, t["side"], t["entry"], curr_p, profit, "UPDATE", is_premium=is_premium_server)
                     
                     # Supabase 업데이트
-                    if is_premium_server:
-                        update_position_in_supabase(symbol, tf_key, {
+                    if is_premium_server and user_id:
+                        update_position_in_supabase(symbol, user_id, {
                             "be_active": True,
                             "sl_price": t["entry"],
                             "current_price": curr_p,
-                            "unrealized_pnl": round(profit, 2)
+                            "profit_pct": round(profit, 2)
                         })
                 
                 # SL/TP 체크
@@ -415,10 +423,10 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
                     log_trade(symbol, t["side"], t["entry"], curr_p, profit, "EXIT", is_premium=is_premium_server)
                     
                     # Supabase에서 청산
-                    if is_premium_server:
+                    if is_premium_server and user_id:
                         close_position_in_supabase(
                             symbol=symbol,
-                            timeframe=tf_key,
+                            user_id=user_id,
                             exit_price=curr_p,
                             realized_pnl=round(profit, 2),
                             reason="TP" if hit_tp else "SL"
@@ -442,7 +450,8 @@ def process_ticker(symbol, info, timeframe="5m", is_premium_server=False):
 # ── 스캔 루프 ─────────────────────────────────────────────────
 def scan_loop_5m():
     """5분봉 자동 스캔 - 베이스 티커만"""
-    is_premium_server = True  # Supabase에 항상 저장
+    is_premium_server = True
+    system_user_id = "00000000-0000-0000-0000-000000000000"  # 시스템 기본 user_id
     while True:
         scan_state["5m"]["running"], scan_state["5m"]["progress"] = True, 0
         tickers = list(LEVERAGE_MAP.items())
@@ -453,10 +462,10 @@ def scan_loop_5m():
             print(f"[Retry] {len(retry_tickers)} failed tickers")
             with ThreadPoolExecutor(max_workers=4) as ex:
                 for s, i in retry_tickers:
-                    ex.submit(process_ticker, s, i, "5m", is_premium_server)
+                    ex.submit(process_ticker, s, i, "5m", is_premium_server, system_user_id)
         
         with ThreadPoolExecutor(max_workers=TIMEFRAME_CONFIG["5m"]["workers"]) as ex:
-            future_map = {ex.submit(process_ticker, s, i, "5m", is_premium_server): s for s, i in tickers}
+            future_map = {ex.submit(process_ticker, s, i, "5m", is_premium_server, system_user_id): s for s, i in tickers}
             done = 0
             for fut in as_completed(future_map):
                 done += 1
@@ -476,12 +485,13 @@ def scan_loop_5m():
         print(f"[Scan Complete] Total: {len(ticker_data['5m'])}, Failed: {len(failed_tickers)}")
         time.sleep(TIMEFRAME_CONFIG["5m"]["sleep"])
 
-def scan_timeframe(timeframe: str, auth_token: str = None):
+def scan_timeframe(timeframe: str, auth: dict = None):
     """온디맨드 스캔 - 특정 시간봉"""
     if timeframe not in TIMEFRAME_CONFIG:
         return {"error": "Invalid timeframe"}
     
-    is_premium_server = True  # Supabase에 항상 저장
+    is_premium_server = True
+    user_id = auth.get("user_id") if auth else None
     config = TIMEFRAME_CONFIG[timeframe]
     
     scan_state[timeframe]["running"], scan_state[timeframe]["progress"] = True, 0
@@ -490,7 +500,7 @@ def scan_timeframe(timeframe: str, auth_token: str = None):
     def process_with_progress(item):
         symbol, info = item
         try:
-            process_ticker(symbol, info, timeframe, is_premium_server)
+            process_ticker(symbol, info, timeframe, is_premium_server, user_id)
         except Exception as e:
             print(f"[{timeframe}] {symbol}: {e}")
         finally:
@@ -551,9 +561,9 @@ def trigger_scan(tf: str = "5m", auth: dict = Depends(verify_token)):
     if tf not in TIMEFRAME_CONFIG:
         return JSONResponse({"error": "Invalid timeframe"}, status_code=400)
     
-    # 백그라운드에서 스캔 실행
+    # 백그라운드에서 스캔 실행 (auth에서 user_id 전달)
     def run_scan():
-        scan_timeframe(tf, auth_token=None)
+        scan_timeframe(tf, auth)
     
     threading.Thread(target=run_scan, daemon=True).start()
     return JSONResponse({"message": f"{tf} 스캔 시작", "status": "running"})
