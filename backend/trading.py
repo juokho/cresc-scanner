@@ -1,16 +1,16 @@
 import logging
 import time
 from decimal import Decimal
-from concurrent.futures import ThreadPoolExecutor
-
 import numpy as np
 import pandas as pd
 import urllib3
 from binance.client import Client
 
+# 🚀 추가된 설정값(USE_WICK_FILTER, BODY_PERCENT)을 config.py에서 임포트해야 합니다.
 from config import (
     ALL_TARGET_SYMBOLS, BAR_SIZE, MAX_WORKERS, MIN_NOTIONAL,
     CHOP_LEN, THRESHOLD_TREND, HMA_LEN, Z_LEN, ATR_LEN,
+    USE_WICK_FILTER, BODY_PERCENT 
 )
 from state import (
     _state_lock, get_user_state,
@@ -112,14 +112,24 @@ def check_symbol_nexus(user_id: str, symbol: str) -> None:
             "hma":     round(float(curr["hma"]),     4),
         }
 
-        # 진입 조건
+        # 🚀 휩쏘(Whipsaw) 필터 계산 로직 추가
+        candle_body = abs(curr["close"] - curr["open"])
+        candle_range = curr["high"] - curr["low"]
+        is_not_whipsaw = True
+        
+        if USE_WICK_FILTER and candle_range > 0:
+            is_not_whipsaw = (candle_body / candle_range) * 100 >= BODY_PERCENT
+
+        # 진입 조건 (Directional CI 및 휩쏘 필터 적용)
         side, logic = None, ""
         if is_trending:
-            if prev["close"] <= prev["hma"] and curr["close"] > curr["hma"]:
+            # 추세장: HMA 돌파 + 방향성 일치 + 휩쏘 캔들 아님
+            if prev["close"] <= prev["hma"] and curr["close"] > curr["hma"] and is_not_whipsaw:
                 side, logic = "LONG",  "TREND_HMA"
-            elif prev["close"] >= prev["hma"] and curr["close"] < curr["hma"]:
+            elif prev["close"] >= prev["hma"] and curr["close"] < curr["hma"] and is_not_whipsaw:
                 side, logic = "SHORT", "TREND_HMA"
         else:
+            # 박스권: Z-Score 역추세 (박스권은 휩쏘 필터 미적용, PineScript 기준 동일)
             if prev["z_score"] <= -2.0 and curr["z_score"] > -2.0:
                 side, logic = "LONG",  "RANGE_Z"
             elif prev["z_score"] >= 2.0 and curr["z_score"] < 2.0:
@@ -152,7 +162,6 @@ def execute_binance_order(
     try:
         bn_client = state["bn_client"]
 
-        # 포지션 중복 진입 방지
         pos = bn_client.futures_position_information(symbol=symbol)
         if any(float(p.get("positionAmt", 0)) != 0 for p in pos):
             return
@@ -188,7 +197,7 @@ def execute_binance_order(
         log.error(f"주문 실행 오류 {symbol}: {e}", exc_info=True)
 
 # ============================================================
-# 백그라운드 루프 (포지션 청산 및 트레일링 스탑)
+# 백그라운드 루프 (포지션 청산 및 실시간 HWM 트레일링 스탑)
 # ============================================================
 async def monitor_loop() -> None:
     import asyncio
@@ -247,13 +256,13 @@ async def position_cleanup_loop() -> None:
                         side    = meta["side"]
                         hwm     = meta["hwm"]
 
-                        # state에 저장된 설정값 (없을 시 PineScript V5 기본값 적용)
+                        # state 설정값 (PineScript V6 파라미터와 일치)
                         sl_mult = state.get("sl_atr_mult", 1.5)
                         tp_mult = state.get("tp_atr_mult", 3.5)
                         trail_pts_mult = state.get("trail_points", 80.0)
                         trail_off_mult = state.get("trail_offset", 10.0)
 
-                        # 바이낸스 심볼의 tickSize 추출 (PineScript의 Tick 계산 보정용)
+                        # 바이낸스 심볼의 tickSize 추출 (PineScript의 syminfo.mintick 역할)
                         filters = state["bn_symbols"][symbol]["filters"]
                         tick_size = float(next(f["tickSize"] for f in filters if f["filterType"] == "PRICE_FILTER"))
 
@@ -270,14 +279,14 @@ async def position_cleanup_loop() -> None:
                                     hwm = mark
                                     user_position_meta[user_id][symbol]["hwm"] = hwm
 
-                                # 1. 트레일링 스탑 평가
+                                # 1. 트레일링 스탑 평가 (PineScript V6 로직 동기화)
                                 activation_price = entry + trail_activation_dist
                                 if hwm >= activation_price:
                                     trailing_stop_price = hwm - trail_offset_dist
                                     if mark <= trailing_stop_price:
                                         should_close, reason = True, "Trailing Stop Hit"
 
-                                # 2. 고정 SL / TP 평가 (트레일링이 발동/체결되지 않은 경우)
+                                # 2. 고정 SL / TP 평가
                                 if not should_close:
                                     if mark <= entry - (atr * sl_mult):
                                         should_close, reason = True, "SL Hit"
@@ -329,10 +338,6 @@ async def position_cleanup_loop() -> None:
 # 전체 포지션 청산 (Panic Sell)
 # ============================================================
 def close_all_positions_for_user(user_id: str) -> dict:
-    """
-    사용자의 모든 포지션을 시장가로 청산합니다.
-    Panic Sell 버튼에서 호출됩니다.
-    """
     state = get_user_state(user_id)
     bn_client = state.get("bn_client")
     
